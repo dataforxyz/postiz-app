@@ -17,19 +17,51 @@ const fixAcceptHeader = (req: Request) => {
     req.rawHeaders.push('Accept', value);
   }
 };
-
+import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
 export const startMcp = async (app: INestApplication) => {
   const mastraService = app.get(MastraService, { strict: false });
   const organizationService = app.get(OrganizationService, { strict: false });
   const oauthService = app.get(OAuthService, { strict: false });
+  const apiTokenService = app.get(ApiTokenService, { strict: false });
 
   const resolveAuth = async (token: string) => {
     if (token.startsWith('pos_')) {
       const authorization = await oauthService.getOrgByOAuthToken(token);
       if (!authorization) return null;
-      return authorization.organization;
+      return {
+        organization: authorization.organization,
+        tokenScopes: null,
+      };
     }
-    return organizationService.getOrgByApiKey(token);
+
+    const validatedToken = await apiTokenService.validateToken(token);
+    if (validatedToken) {
+      const organization = await organizationService.getOrgById(
+        validatedToken.orgId
+      );
+
+      if (!organization) {
+        return null;
+      }
+
+      return {
+        organization,
+        tokenScopes: {
+          permissions: validatedToken.permissions,
+          integrationIds: validatedToken.integrationIds,
+        },
+      };
+    }
+
+    const organization = await organizationService.getOrgByApiKey(token);
+    if (!organization) {
+      return null;
+    }
+
+    return {
+      organization,
+      tokenScopes: null,
+    };
   };
 
   const mastra = await mastraService.mastra();
@@ -131,6 +163,7 @@ export const startMcp = async (app: INestApplication) => {
   });
 
   app.use('/mcp', async (req: Request, res: Response, next: () => void) => {
+    const authRequest = req as Request & { auth?: any };
     // Skip if this is the /mcp/:id route
     if (req.path !== '/' && req.path !== '') {
       next();
@@ -155,9 +188,10 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     // @ts-ignore
-    req.auth = await resolveAuth(token);
+    const auth = await resolveAuth(token);
+    authRequest.auth = auth?.organization;
     // @ts-ignore
-    if (!req.auth) {
+    if (!authRequest.auth || !auth) {
       res.status(401).send('Invalid API Key or OAuth token');
       return;
     }
@@ -166,7 +200,13 @@ export const startMcp = async (app: INestApplication) => {
 
     fixAcceptHeader(req);
     // @ts-ignore
-    await runWithContext({ requestId: token, auth: req.auth }, async () => {
+    await runWithContext(
+      {
+        requestId: token,
+        auth: authRequest.auth,
+        tokenScopes: auth.tokenScopes,
+      },
+      async () => {
       await server.startHTTP({
         url,
         httpPath: url.pathname,
@@ -179,10 +219,12 @@ export const startMcp = async (app: INestApplication) => {
         req,
         res,
       });
-    });
+      }
+    );
   });
 
   app.use('/mcp/:id', async (req: Request, res: Response) => {
+    const authRequest = req as Request & { auth?: any };
     // @ts-ignore
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', '*');
@@ -195,9 +237,10 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     // @ts-ignore
-    req.auth = await organizationService.getOrgByApiKey(req.params.id);
+    const auth = await resolveAuth(req.params.id);
+    authRequest.auth = auth?.organization;
     // @ts-ignore
-    if (!req.auth) {
+    if (!authRequest.auth || !auth) {
       res.status(400).send('Invalid API Key');
       return;
     }
@@ -210,7 +253,11 @@ export const startMcp = async (app: INestApplication) => {
     fixAcceptHeader(req);
     await runWithContext(
       // @ts-ignore
-      { requestId: req.params.id, auth: req.auth },
+      {
+        requestId: req.params.id,
+        auth: authRequest.auth,
+        tokenScopes: auth.tokenScopes,
+      },
       async () => {
         await server.startHTTP({
           url,
@@ -229,6 +276,7 @@ export const startMcp = async (app: INestApplication) => {
   });
 
   app.use(['/sse/:id', '/message/:id'], async (req: Request, res: Response) => {
+    const authRequest = req as Request & { auth?: any };
     // @ts-ignore
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', '*');
@@ -241,9 +289,10 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     // @ts-ignore
-    req.auth = await organizationService.getOrgByApiKey(req.params.id);
+    const auth = await resolveAuth(req.params.id);
+    authRequest.auth = auth?.organization;
     // @ts-ignore
-    if (!req.auth) {
+    if (!authRequest.auth || !auth) {
       res.status(400).send('Invalid API Key');
       return;
     }
@@ -252,7 +301,11 @@ export const startMcp = async (app: INestApplication) => {
 
     await runWithContext(
       // @ts-ignore
-      { requestId: req.params.id, auth: req.auth },
+      {
+        requestId: req.params.id,
+        auth: authRequest.auth,
+        tokenScopes: auth.tokenScopes,
+      },
       async () => {
         await new MCPServer(serverConfig).startSSE({
           url,

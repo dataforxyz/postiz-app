@@ -40,6 +40,8 @@ import { OAuthRepository } from '@gitroom/nestjs-libraries/database/prisma/oauth
 import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.repository';
 import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
+import { ApiTokenRepository } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.repository';
+import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
 
 @Global()
 @Module({
@@ -86,6 +88,8 @@ import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/
     ThirdPartyService,
     OAuthRepository,
     OAuthService,
+    ApiTokenRepository,
+    ApiTokenService,
     VideoManager,
     AnnouncementsRepository,
     AnnouncementsService,

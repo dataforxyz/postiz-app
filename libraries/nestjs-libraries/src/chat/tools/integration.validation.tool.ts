@@ -8,6 +8,7 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import { getValidationSchemas } from '@gitroom/nestjs-libraries/chat/validation.schemas.helper';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { ensureToolPermission } from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class IntegrationValidationTool implements AgentToolInterface {
@@ -81,10 +82,12 @@ export class IntegrationValidationTool implements AgentToolInterface {
             ),
         }),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context } = args;
+        checkAuth(args, options);
+        ensureToolPermission('read');
         const integration = socialIntegrationList.find(
-          (p) => p.identifier === inputData.platform
+          (p) => p.identifier === context.platform
         )!;
 
         if (!integration) {
@@ -93,7 +96,7 @@ export class IntegrationValidationTool implements AgentToolInterface {
           };
         }
 
-        const maxLength = integration.maxLength(inputData.isPremium);
+        const maxLength = integration.maxLength(context.isPremium);
         const schemas = !integration.dto
           ? false
           : getValidationSchemas()[integration.dto.name];

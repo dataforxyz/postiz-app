@@ -6,6 +6,10 @@ import { Injectable } from '@nestjs/common';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import z from 'zod';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import {
+  ensureToolPermission,
+  getAllowedToolIntegrationIds,
+} from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class IntegrationListTool implements AgentToolInterface {
@@ -36,15 +40,21 @@ export class IntegrationListTool implements AgentToolInterface {
           })
         ),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        ensureToolPermission('read');
         const organizationId = JSON.parse(
-          (context?.requestContext as any)?.get('organization') as string
+          // @ts-ignore
+          runtimeContext.get('organization') as string
         ).id;
 
         return {
           output: (
-            await this._integrationService.getIntegrationsList(organizationId)
+            await this._integrationService.getIntegrationsList(
+              organizationId,
+              getAllowedToolIntegrationIds()
+            )
           ).map((p) => ({
             name: p.name,
             id: p.id,

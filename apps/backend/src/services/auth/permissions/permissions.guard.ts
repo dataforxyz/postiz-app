@@ -31,9 +31,9 @@ export class PoliciesGuard implements CanActivate {
     }
 
     const policyHandlers =
-      this._reflector.get<AbilityPolicy[]>(
+      this._reflector.getAllAndOverride<AbilityPolicy[]>(
         CHECK_POLICIES_KEY,
-        context.getHandler()
+        [context.getHandler(), context.getClass()]
       ) || [];
 
     if (!policyHandlers || !policyHandlers.length) {

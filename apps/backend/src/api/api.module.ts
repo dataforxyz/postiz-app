@@ -43,6 +43,7 @@ import { GoogleProvider } from '@gitroom/backend/services/auth/providers/google.
 import { FarcasterProvider } from '@gitroom/backend/services/auth/providers/farcaster.provider';
 import { WalletProvider } from '@gitroom/backend/services/auth/providers/wallet.provider';
 import { OauthProvider } from '@gitroom/backend/services/auth/providers/oauth.provider';
+import { ApiTokensController } from '@gitroom/backend/api/routes/api-tokens.controller';
 
 const authenticatedController = [
   UsersController,
@@ -63,6 +64,7 @@ const authenticatedController = [
   ApprovedAppsController,
   OAuthAuthorizedController,
   AnnouncementsController,
+  ApiTokensController,
 ];
 @Module({
   imports: [UploadModule],

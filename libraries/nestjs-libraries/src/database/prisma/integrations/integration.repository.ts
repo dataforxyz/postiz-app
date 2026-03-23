@@ -374,11 +374,11 @@ export class IntegrationRepository {
     });
   }
 
-  getIntegrationById(org: string, id: string) {
+  getIntegrationById(org: string, id: string, allowedIds?: string[]) {
     return this._integration.model.integration.findFirst({
       where: {
         organizationId: org,
-        id,
+        id: allowedIds?.length ? { equals: id, in: allowedIds } : id,
       },
     });
   }
@@ -483,11 +483,18 @@ export class IntegrationRepository {
     });
   }
 
-  getIntegrationsList(org: string) {
+  getIntegrationsList(org: string, allowedIds?: string[]) {
     return this._integration.model.integration.findMany({
       where: {
         organizationId: org,
         deletedAt: null,
+        ...(allowedIds?.length
+          ? {
+              id: {
+                in: allowedIds,
+              },
+            }
+          : {}),
       },
       include: {
         customer: true,
@@ -519,18 +526,25 @@ export class IntegrationRepository {
     });
   }
 
-  getPostsForChannel(org: string, id: string) {
+  getPostsForChannel(org: string, id: string, allowedIds?: string[]) {
     return this._posts.model.post.groupBy({
       by: ['group'],
       where: {
         organizationId: org,
         integrationId: id,
         deletedAt: null,
+        ...(allowedIds?.length
+          ? {
+              integrationId: {
+                in: allowedIds,
+              },
+            }
+          : {}),
       },
     });
   }
 
-  deleteChannel(org: string, id: string) {
+  deleteChannel(org: string, id: string, allowedIds?: string[]) {
     return this._integration.model.integration.update({
       where: {
         id,
@@ -658,13 +672,24 @@ export class IntegrationRepository {
     });
   }
 
-  async getPostingTimes(orgId: string, integrationsId?: string) {
+  async getPostingTimes(
+    orgId: string,
+    integrationsId?: string,
+    allowedIds?: string[]
+  ) {
     return this._integration.model.integration.findMany({
       where: {
         ...(integrationsId ? { id: integrationsId } : {}),
         organizationId: orgId,
         disabled: false,
         deletedAt: null,
+        ...(allowedIds?.length
+          ? {
+              id: {
+                in: allowedIds,
+              },
+            }
+          : {}),
       },
       select: {
         postingTimes: true,

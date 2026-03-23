@@ -7,6 +7,7 @@ import { getValidationSchemas } from '@gitroom/nestjs-libraries/chat/validation.
 import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 import z from 'zod';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { ensureToolPermission } from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class GenerateVideoOptionsTool implements AgentToolInterface {
@@ -42,8 +43,10 @@ export class GenerateVideoOptionsTool implements AgentToolInterface {
           })
         ),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context } = args;
+        checkAuth(args, options);
+        ensureToolPermission('read');
         const videos = this._videoManagerService.getAllVideos();
         console.log(
           JSON.stringify(

@@ -3,12 +3,14 @@ import { Request, Response, NextFunction } from 'express';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { HttpForbiddenException } from '@gitroom/nestjs-libraries/services/exception.filter';
+import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
 
 @Injectable()
 export class PublicAuthMiddleware implements NestMiddleware {
   constructor(
     private _organizationService: OrganizationService,
-    private _oauthService: OAuthService
+    private _oauthService: OAuthService,
+    private _apiTokenService: ApiTokenService
   ) {}
   async use(req: Request, res: Response, next: NextFunction) {
     const auth = (req.headers.authorization ||
@@ -36,9 +38,17 @@ export class PublicAuthMiddleware implements NestMiddleware {
         }
 
         // @ts-ignore
-        req.org = { ...org, users: [{ users: { role: 'SUPERADMIN' } }] };
+        req.org = {
+          ...org,
+          users: [{ role: 'SUPERADMIN', users: { role: 'SUPERADMIN' } }],
+        };
+        // @ts-ignore
+        req.tokenScopes = null;
       } else {
-        const org = await this._organizationService.getOrgByApiKey(auth);
+        const validatedToken = await this._apiTokenService.validateToken(auth);
+        const org = validatedToken
+          ? await this._organizationService.getOrgById(validatedToken.orgId)
+          : await this._organizationService.getOrgByApiKey(auth);
         if (!org) {
           res
             .status(HttpStatus.UNAUTHORIZED)
@@ -54,7 +64,17 @@ export class PublicAuthMiddleware implements NestMiddleware {
         }
 
         // @ts-ignore
-        req.org = { ...org, users: [{ users: { role: 'SUPERADMIN' } }] };
+        req.org = {
+          ...org,
+          users: [{ role: 'SUPERADMIN', users: { role: 'SUPERADMIN' } }],
+        };
+        // @ts-ignore
+        req.tokenScopes = validatedToken
+          ? {
+              permissions: validatedToken.permissions,
+              integrationIds: validatedToken.integrationIds,
+            }
+          : null;
       }
     } catch (err) {
       throw new HttpForbiddenException();

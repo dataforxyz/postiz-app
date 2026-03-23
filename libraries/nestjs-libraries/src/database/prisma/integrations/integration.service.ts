@@ -144,8 +144,8 @@ export class IntegrationService {
     return this._integrationRepository.updateOnCustomerName(org, id, name);
   }
 
-  getIntegrationsList(org: string) {
-    return this._integrationRepository.getIntegrationsList(org);
+  getIntegrationsList(org: string, allowedIds?: string[]) {
+    return this._integrationRepository.getIntegrationsList(org, allowedIds);
   }
 
   getIntegrationForOrder(id: string, order: string, user: string, org: string) {
@@ -161,8 +161,8 @@ export class IntegrationService {
     return this._integrationRepository.updateNameAndUrl(id, name, url);
   }
 
-  getIntegrationById(org: string, id: string) {
-    return this._integrationRepository.getIntegrationById(org, id);
+  getIntegrationById(org: string, id: string, allowedIds?: string[]) {
+    return this._integrationRepository.getIntegrationById(org, id, allowedIds);
   }
 
   async refreshToken(provider: SocialProvider, refresh: string) {
@@ -265,12 +265,16 @@ export class IntegrationService {
     return this._integrationRepository.enableChannel(org, id);
   }
 
-  async getPostsForChannel(org: string, id: string) {
-    return this._integrationRepository.getPostsForChannel(org, id);
+  async getPostsForChannel(org: string, id: string, allowedIds?: string[]) {
+    return this._integrationRepository.getPostsForChannel(org, id, allowedIds);
   }
 
-  async deleteChannel(org: string, id: string) {
-    return this._integrationRepository.deleteChannel(org, id);
+  async deleteChannel(org: string, id: string, allowedIds?: string[]) {
+    if (allowedIds?.length && !allowedIds.includes(id)) {
+      throw new HttpException('Integration not found', HttpStatus.NOT_FOUND);
+    }
+
+    return this._integrationRepository.deleteChannel(org, id, allowedIds);
   }
 
   async disableIntegrations(org: string, totalChannels: number) {
@@ -330,9 +334,14 @@ export class IntegrationService {
     org: Organization,
     integration: string,
     date: string,
-    forceRefresh = false
+    forceRefresh = false,
+    allowedIds?: string[]
   ): Promise<AnalyticsData[]> {
-    const getIntegration = await this.getIntegrationById(org.id, integration);
+    const getIntegration = await this.getIntegrationById(
+      org.id,
+      integration,
+      allowedIds
+    );
 
     if (!getIntegration) {
       throw new Error('Invalid integration');
@@ -549,11 +558,13 @@ export class IntegrationService {
 
   async findFreeDateTime(
     orgId: string,
-    integrationsId?: string
+    integrationsId?: string,
+    allowedIds?: string[]
   ): Promise<number[]> {
     const findTimes = await this._integrationRepository.getPostingTimes(
       orgId,
-      integrationsId
+      integrationsId,
+      allowedIds
     );
     return uniq(
       findTimes.reduce((all: any, current: any) => {

@@ -8,8 +8,10 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
@@ -40,9 +42,16 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
+import {
+  RequiresTokenPermission,
+  ScopeGuard,
+} from '@gitroom/backend/services/auth/permissions/scope.guard';
+import { getAllowedIntegrationIds } from '@gitroom/backend/services/auth/token-scopes';
+import { Request } from 'express';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
+@UseGuards(ScopeGuard)
 export class PublicIntegrationsController {
   private storage = UploadFactory.createStorage();
 
@@ -56,6 +65,7 @@ export class PublicIntegrationsController {
   ) {}
 
   @Post('/upload')
+  @RequiresTokenPermission('write')
   @UseInterceptors(FileInterceptor('file'))
   async uploadSimple(
     @GetOrgFromRequest() org: Organization,
@@ -75,6 +85,7 @@ export class PublicIntegrationsController {
   }
 
   @Post('/upload-from-url')
+  @RequiresTokenPermission('write')
   async uploadsFromUrl(
     @GetOrgFromRequest() org: Organization,
     @Body() body: UploadDto
@@ -111,21 +122,35 @@ export class PublicIntegrationsController {
   }
 
   @Get('/find-slot/:id')
+  @RequiresTokenPermission('read')
   async findSlotIntegration(
     @GetOrgFromRequest() org: Organization,
-    @Param('id') id?: string
+    @Param('id') id: string,
+    @Req() req?: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return { date: await this._postsService.findFreeDateTime(org.id, id) };
+    return {
+      date: await this._postsService.findFreeDateTime(
+        org.id,
+        id,
+        getAllowedIntegrationIds(req as any)
+      ),
+    };
   }
 
   @Get('/posts')
+  @RequiresTokenPermission('read')
   async getPosts(
     @GetOrgFromRequest() org: Organization,
-    @Query() query: GetPostsDto
+    @Query() query: GetPostsDto,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    const posts = await this._postsService.getPosts(org.id, query);
+    const posts = await this._postsService.getPosts(
+      org.id,
+      query,
+      getAllowedIntegrationIds(req as any)
+    );
     return {
       posts,
       // comments,
@@ -133,70 +158,100 @@ export class PublicIntegrationsController {
   }
 
   @Post('/posts')
+  @RequiresTokenPermission('write')
   @CheckPolicies([AuthorizationActions.Create, Sections.POSTS_PER_MONTH])
   async createPost(
     @GetOrgFromRequest() org: Organization,
-    @Body() rawBody: any
+    @Body() rawBody: any,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
     const body = await this._postsService.mapTypeToPost(
       rawBody,
       org.id,
-      rawBody.type === 'draft'
+      rawBody.type === 'draft',
+      getAllowedIntegrationIds(req as any)
     );
     body.type = rawBody.type;
 
     console.log(JSON.stringify(body, null, 2));
-    return this._postsService.createPost(org.id, body);
+    return this._postsService.createPost(
+      org.id,
+      body,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Delete('/posts/:id')
+  @RequiresTokenPermission('write')
   async deletePost(
     @GetOrgFromRequest() org: Organization,
-    @Param('id') id: string
+    @Param('id') id: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    const getPostById = await this._postsService.getPost(org.id, id);
-    return this._postsService.deletePost(org.id, getPostById.group);
+    const allowedIds = getAllowedIntegrationIds(req as any);
+    const getPostById = await this._postsService.getPost(
+      org.id,
+      id,
+      false,
+      allowedIds
+    );
+    return this._postsService.deletePost(org.id, getPostById.group, allowedIds);
   }
 
   @Delete('/posts/group/:group')
+  @RequiresTokenPermission('write')
   deletePostByGroup(
     @GetOrgFromRequest() org: Organization,
-    @Param('group') group: string
+    @Param('group') group: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.deletePost(org.id, group);
+    return this._postsService.deletePost(
+      org.id,
+      group,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Get('/is-connected')
+  @RequiresTokenPermission('read')
   async getActiveIntegrations(@GetOrgFromRequest() org: Organization) {
     Sentry.metrics.count('public_api-request', 1);
     return { connected: true };
   }
 
   @Get('/integrations')
-  async listIntegration(@GetOrgFromRequest() org: Organization) {
+  @RequiresTokenPermission('read')
+  async listIntegration(
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request
+  ) {
     Sentry.metrics.count('public_api-request', 1);
-    return (await this._integrationService.getIntegrationsList(org.id)).map(
-      (org) => ({
-        id: org.id,
-        name: org.name,
-        identifier: org.providerIdentifier,
-        picture: org.picture,
-        disabled: org.disabled,
-        profile: org.profile,
-        customer: org.customer
+    return (
+      await this._integrationService.getIntegrationsList(
+        org.id,
+        getAllowedIntegrationIds(req as any)
+      )
+    ).map((org) => ({
+      id: org.id,
+      name: org.name,
+      identifier: org.providerIdentifier,
+      picture: org.picture,
+      disabled: org.disabled,
+      profile: org.profile,
+      customer: org.customer
           ? {
               id: org.customer.id,
               name: org.customer.name,
             }
           : undefined,
-      })
-    );
+    }));
   }
 
   @Get('/social/:integration')
+  @RequiresTokenPermission('write')
   @CheckPolicies([AuthorizationActions.Create, Sections.CHANNEL])
   async getIntegrationUrl(
     @Param('integration') integration: string,
@@ -240,6 +295,7 @@ export class PublicIntegrationsController {
   }
 
   @Get('/notifications')
+  @RequiresTokenPermission('read')
   async getNotifications(
     @GetOrgFromRequest() org: Organization,
     @Query() query: GetNotificationsDto
@@ -252,6 +308,7 @@ export class PublicIntegrationsController {
   }
 
   @Post('/generate-video')
+  @RequiresTokenPermission('write')
   generateVideo(
     @GetOrgFromRequest() org: Organization,
     @Body() body: VideoDto
@@ -261,6 +318,7 @@ export class PublicIntegrationsController {
   }
 
   @Post('/video/function')
+  @RequiresTokenPermission('read')
   videoFunction(@Body() body: VideoFunctionDto) {
     Sentry.metrics.count('public_api-request', 1);
     return this._mediaService.videoFunction(
@@ -271,33 +329,40 @@ export class PublicIntegrationsController {
   }
 
   @Delete('/integrations/:id')
+  @RequiresTokenPermission('write')
   async deleteChannel(
     @GetOrgFromRequest() org: Organization,
-    @Param('id') id: string
+    @Param('id') id: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
+    const allowedIds = getAllowedIntegrationIds(req as any);
     const isTherePosts = await this._integrationService.getPostsForChannel(
       org.id,
-      id
+      id,
+      allowedIds
     );
     if (isTherePosts.length) {
       for (const post of isTherePosts) {
-        this._postsService.deletePost(org.id, post.group).catch(() => {});
+        this._postsService.deletePost(org.id, post.group, allowedIds).catch(() => {});
       }
     }
 
-    return this._integrationService.deleteChannel(org.id, id);
+    return this._integrationService.deleteChannel(org.id, id, allowedIds);
   }
 
   @Get('/integration-settings/:id')
+  @RequiresTokenPermission('read')
   async getIntegrationSettings(
     @GetOrgFromRequest() org: Organization,
-    @Param('id') id: string
+    @Param('id') id: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
     const loadIntegration = await this._integrationService.getIntegrationById(
       org.id,
-      id
+      id,
+      getAllowedIntegrationIds(req as any)
     );
 
     const verified =
@@ -333,54 +398,88 @@ export class PublicIntegrationsController {
   }
 
   @Get('/posts/:id/missing')
+  @RequiresTokenPermission('read')
   async getMissingContent(
     @GetOrgFromRequest() org: Organization,
-    @Param('id') id: string
+    @Param('id') id: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.getMissingContent(org.id, id);
+    return this._postsService.getMissingContent(
+      org.id,
+      id,
+      false,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Put('/posts/:id/release-id')
+  @RequiresTokenPermission('write')
   async updateReleaseId(
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string,
-    @Body('releaseId') releaseId: string
+    @Body('releaseId') releaseId: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
+    await this._postsService.getPost(
+      org.id,
+      id,
+      false,
+      getAllowedIntegrationIds(req as any)
+    );
     return this._postsService.updateReleaseId(org.id, id, releaseId);
   }
 
   @Get('/analytics/:integration')
+  @RequiresTokenPermission('read')
   async getAnalytics(
     @GetOrgFromRequest() org: Organization,
     @Param('integration') integration: string,
-    @Query('date') date: string
+    @Query('date') date: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._integrationService.checkAnalytics(org, integration, date);
+    return this._integrationService.checkAnalytics(
+      org,
+      integration,
+      date,
+      false,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Get('/analytics/post/:postId')
+  @RequiresTokenPermission('read')
   async getPostAnalytics(
     @GetOrgFromRequest() org: Organization,
     @Param('postId') postId: string,
-    @Query('date') date: string
+    @Query('date') date: string,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.checkPostAnalytics(org.id, postId, +date);
+    return this._postsService.checkPostAnalytics(
+      org.id,
+      postId,
+      +date,
+      false,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Post('/integration-trigger/:id')
+  @RequiresTokenPermission('read')
   async triggerIntegrationTool(
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string,
-    @Body() body: { methodName: string; data: Record<string, string> }
+    @Body() body: { methodName: string; data: Record<string, string> },
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
     const getIntegration = await this._integrationService.getIntegrationById(
       org.id,
-      id
+      id,
+      getAllowedIntegrationIds(req as any)
     );
 
     if (!getIntegration) {

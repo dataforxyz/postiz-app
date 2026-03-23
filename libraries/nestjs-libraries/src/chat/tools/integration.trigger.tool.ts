@@ -11,6 +11,10 @@ import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abst
 import { timer } from '@gitroom/helpers/utils/timer';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import {
+  ensureToolPermission,
+  getAllowedToolIntegrationIds,
+} from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class IntegrationTriggerTool implements AgentToolInterface {
@@ -52,17 +56,21 @@ export class IntegrationTriggerTool implements AgentToolInterface {
       outputSchema: z.object({
         output: z.array(z.record(z.string(), z.any())),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
-        console.log('triggerTool', inputData);
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        ensureToolPermission('read');
+        console.log('triggerTool', context);
         const organizationId = JSON.parse(
-          (context?.requestContext as any)?.get('organization') as string
+          // @ts-ignore
+          runtimeContext.get('organization') as string
         ).id;
 
         const getIntegration =
           await this._integrationService.getIntegrationById(
             organizationId,
-            inputData.integrationId
+            context.integrationId,
+            getAllowedToolIntegrationIds()
           );
 
         if (!getIntegration) {
@@ -85,10 +93,10 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         if (
           // @ts-ignore
           !tools[integrationProvider.identifier].some(
-            (p) => p.methodName === inputData.methodName
+            (p) => p.methodName === context.methodName
           ) ||
           // @ts-ignore
-          !integrationProvider[inputData.methodName]
+          !integrationProvider[context.methodName]
         ) {
           return { output: 'tool not found' };
         }
@@ -96,9 +104,9 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         while (true) {
           try {
             // @ts-ignore
-            const load = await integrationProvider[inputData.methodName](
+            const load = await integrationProvider[context.methodName](
               getIntegration.token,
-              inputData.dataSchema.reduce(
+              context.dataSchema.reduce(
                 (all: Record<string, string>, current: { key: string; value: string }) => ({
                   ...all,
                   [current.key]: current.value,

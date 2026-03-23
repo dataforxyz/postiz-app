@@ -200,6 +200,15 @@ export class OrganizationRepository {
       where: {
         id,
       },
+      include: {
+        subscription: {
+          select: {
+            subscriptionTier: true,
+            totalChannels: true,
+            isLifetime: true,
+          },
+        },
+      },
     });
   }
 

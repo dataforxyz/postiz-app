@@ -12,6 +12,11 @@ import { Integration } from '@prisma/client';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 import { weightedLength } from '@gitroom/helpers/utils/count.length';
+import {
+  ensureToolPermission,
+  getAllowedToolIntegrationIds,
+  isToolIntegrationAllowed,
+} from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 function countCharacters(text: string, type: string): number {
   if (type !== 'x') {
@@ -123,19 +128,27 @@ If the tools return errors, you would need to rerun it with the right parameters
           )
           .or(z.object({ errors: z.string() })),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        ensureToolPermission('write');
         const organizationId = JSON.parse(
-          (context?.requestContext as any)?.get('organization') as string
+          // @ts-ignore
+          runtimeContext.get('organization') as string
         ).id;
         const finalOutput = [];
 
         const integrations = {} as Record<string, Integration>;
-        for (const platform of inputData.socialPost) {
+        const allowedIntegrationIds = getAllowedToolIntegrationIds();
+        for (const platform of context.socialPost) {
+          if (!isToolIntegrationAllowed(platform.integrationId)) {
+            return { output: { errors: 'Integration not found' } };
+          }
           integrations[platform.integrationId] =
             await this._integrationService.getIntegrationById(
               organizationId,
-              platform.integrationId
+              platform.integrationId,
+              allowedIntegrationIds
             );
 
           const { dto, maxLength, identifier } = socialIntegrationList.find(
@@ -159,7 +172,9 @@ If the tools return errors, you would need to rerun it with the right parameters
             const errors = await validate(obj);
             if (errors.length) {
               return {
-                errors: JSON.stringify(errors),
+                output: {
+                  errors: JSON.stringify(errors),
+                },
               };
             }
 
@@ -181,13 +196,15 @@ If the tools return errors, you would need to rerun it with the right parameters
 
             if (errorsLength.length) {
               return {
-                errors: JSON.stringify(errorsLength),
+                output: {
+                  errors: JSON.stringify(errorsLength),
+                },
               };
             }
           }
         }
 
-        for (const post of inputData.socialPost) {
+        for (const post of context.socialPost) {
           const integration = integrations[post.integrationId];
 
           if (!integration) {
@@ -223,7 +240,7 @@ If the tools return errors, you would need to rerun it with the right parameters
                 })),
               },
             ],
-          });
+          }, allowedIntegrationIds);
           finalOutput.push(...output);
         }
 

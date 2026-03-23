@@ -120,10 +120,25 @@ export class PostsRepository {
     });
   }
 
-  async getPosts(orgId: string, query: GetPostsDto) {
+  async getPosts(orgId: string, query: GetPostsDto, allowedIntegrationIds?: string[]) {
     // Use the provided start and end dates directly
     const startDate = dayjs.utc(query.startDate).toDate();
     const endDate = dayjs.utc(query.endDate).toDate();
+    const integrationFilter = {
+      deletedAt: null as Date | null,
+      ...(query.customer
+        ? {
+            customerId: query.customer,
+          }
+        : {}),
+      ...(allowedIntegrationIds?.length
+        ? {
+            id: {
+              in: allowedIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const list = await this._post.model.post.findMany({
       where: {
@@ -151,18 +166,9 @@ export class PostsRepository {
             ],
           },
         ],
-        integration: {
-          deletedAt: null,
-        },
+        integration: integrationFilter,
         deletedAt: null,
         parentPostId: null,
-        ...(query.customer
-          ? {
-              integration: {
-                customerId: query.customer,
-              },
-            }
-          : {}),
       },
       select: {
         id: true,
@@ -212,10 +218,28 @@ export class PostsRepository {
     }, [] as any[]);
   }
 
-  async getPostsList(orgId: string, query: GetPostsListDto) {
+  async getPostsList(
+    orgId: string,
+    query: GetPostsListDto,
+    allowedIntegrationIds?: string[]
+  ) {
     const page = query.page || 0;
     const limit = query.limit || 20;
     const skip = page * limit;
+    const integrationFilter = {
+      ...(query.customer
+        ? {
+            customerId: query.customer,
+          }
+        : {}),
+      ...(allowedIntegrationIds?.length
+        ? {
+            id: {
+              in: allowedIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const where = {
       AND: [
@@ -235,11 +259,9 @@ export class PostsRepository {
       deletedAt: null as Date | null,
       parentPostId: null as string | null,
       intervalInDays: null as number | null,
-      ...(query.customer
+      ...(Object.keys(integrationFilter).length
         ? {
-            integration: {
-              customerId: query.customer,
-            },
+            integration: integrationFilter,
           }
         : {}),
     };
