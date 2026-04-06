@@ -580,6 +580,47 @@ export class PostsService {
     return this._postRepository.getOldPosts(orgId, date);
   }
 
+  async getInternalPostsByIds(
+    orgId: string,
+    ids: string[],
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    if (!ids.length) {
+      return [];
+    }
+    return this._postRepository.getInternalPostsByIds(
+      orgId,
+      ids,
+      allowedIntegrationIds
+    );
+  }
+
+  async getInternalPostsByIntegrationWindow(
+    orgId: string,
+    integrationIds: string[],
+    options: {
+      startDate?: string;
+      endDate?: string;
+      states?: State[];
+      limit?: number;
+    },
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    if (!integrationIds.length) {
+      return [];
+    }
+
+    return this._postRepository.getInternalPostsByIntegrationWindow(
+      orgId,
+      integrationIds,
+      options.startDate ? dayjs.utc(options.startDate).toDate() : undefined,
+      options.endDate ? dayjs.utc(options.endDate).toDate() : undefined,
+      options.states,
+      allowedIntegrationIds,
+      options.limit
+    );
+  }
+
   public async updateTags(orgId: string, post: Post[]): Promise<Post[]> {
     const plainText = JSON.stringify(post);
     const extract = Array.from(

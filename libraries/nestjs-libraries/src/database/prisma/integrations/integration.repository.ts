@@ -502,6 +502,47 @@ export class IntegrationRepository {
     });
   }
 
+  getInternalIntegrationsList(org: string, allowedIds?: string[]) {
+    return this._integration.model.integration.findMany({
+      where: {
+        organizationId: org,
+        deletedAt: null,
+        disabled: false,
+        inBetweenSteps: false,
+        token: {
+          not: '',
+        },
+        ...(allowedIds?.length
+          ? {
+              id: {
+                in: allowedIds,
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        name: true,
+        providerIdentifier: true,
+        token: true,
+        refreshToken: true,
+        internalId: true,
+        profile: true,
+        picture: true,
+        disabled: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   async disableChannel(org: string, id: string) {
     await this._integration.model.integration.update({
       where: {

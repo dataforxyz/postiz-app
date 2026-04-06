@@ -148,6 +148,13 @@ export class IntegrationService {
     return this._integrationRepository.getIntegrationsList(org, allowedIds);
   }
 
+  getInternalIntegrationsList(org: string, allowedIds?: string[]) {
+    return this._integrationRepository.getInternalIntegrationsList(
+      org,
+      allowedIds
+    );
+  }
+
   getIntegrationForOrder(id: string, order: string, user: string, org: string) {
     return this._integrationRepository.getIntegrationForOrder(
       id,

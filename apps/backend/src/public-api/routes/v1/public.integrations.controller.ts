@@ -16,6 +16,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization } from '@prisma/client';
+import { State } from '@prisma/client';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
@@ -246,8 +247,130 @@ export class PublicIntegrationsController {
               id: org.customer.id,
               name: org.customer.name,
             }
-          : undefined,
+      : undefined,
     }));
+  }
+
+  @Get('/internal/integrations')
+  @RequiresTokenPermission('read')
+  async listInternalIntegrations(
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    const integrations = await this._integrationService.getInternalIntegrationsList(
+      org.id,
+      getAllowedIntegrationIds(req as any)
+    );
+
+    return {
+      integrations: integrations.map((integration) => ({
+        id: integration.id,
+        name: integration.name,
+        provider: integration.providerIdentifier,
+        token: integration.token,
+        refreshToken: integration.refreshToken,
+        internalId: integration.internalId,
+        profile: integration.profile,
+        picture: integration.picture,
+        disabled: integration.disabled,
+        customer: integration.customer,
+      })),
+    };
+  }
+
+  @Get('/internal/posts/status')
+  @RequiresTokenPermission('read')
+  async getInternalPostsStatus(
+    @GetOrgFromRequest() org: Organization,
+    @Query('ids') ids: string,
+    @Req() req: Request
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    const postIds = (ids || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    return {
+      posts: await this._postsService.getInternalPostsByIds(
+        org.id,
+        postIds,
+        getAllowedIntegrationIds(req as any)
+      ),
+    };
+  }
+
+  @Get('/internal/posts/by-integration-window')
+  @RequiresTokenPermission('read')
+  async getInternalPostsByIntegrationWindow(
+    @GetOrgFromRequest() org: Organization,
+    @Query('integrationIds') integrationIds: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('states') states: string,
+    @Query('limit') limit: string,
+    @Req() req: Request
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    const parsedIntegrationIds = (integrationIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const parsedStates = (states || '')
+      .split(',')
+      .map((state) => state.trim())
+      .filter(Boolean) as State[];
+    const parsedLimit = limit ? +limit : undefined;
+
+    return {
+      posts: await this._postsService.getInternalPostsByIntegrationWindow(
+        org.id,
+        parsedIntegrationIds,
+        {
+          startDate,
+          endDate,
+          states: parsedStates,
+          limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+        },
+        getAllowedIntegrationIds(req as any)
+      ),
+    };
+  }
+
+  @Get('/internal/posts/history')
+  @RequiresTokenPermission('read')
+  async getInternalPostsHistory(
+    @GetOrgFromRequest() org: Organization,
+    @Query('integrationIds') integrationIds: string,
+    @Query('since') since: string,
+    @Query('until') until: string,
+    @Query('limit') limit: string,
+    @Req() req: Request
+  ) {
+    Sentry.metrics.count('public_api-request', 1);
+    const parsedIntegrationIds = (integrationIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const parsedLimit = limit ? +limit : 1000;
+
+    return {
+      posts: await this._postsService.getInternalPostsByIntegrationWindow(
+        org.id,
+        parsedIntegrationIds,
+        {
+          startDate: since,
+          endDate: until,
+          states: ['PUBLISHED'],
+          limit:
+            Number.isFinite(parsedLimit) && parsedLimit > 0
+              ? Math.min(parsedLimit, 5000)
+              : 1000,
+        },
+        getAllowedIntegrationIds(req as any)
+      ),
+    };
   }
 
   @Get('/social/:integration')

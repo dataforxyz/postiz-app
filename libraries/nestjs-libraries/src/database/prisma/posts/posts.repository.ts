@@ -907,4 +907,101 @@ export class PostsRepository {
       },
     });
   }
+
+  async getInternalPostsByIds(
+    orgId: string,
+    ids: string[],
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        id: {
+          in: ids,
+        },
+        deletedAt: null,
+        parentPostId: null,
+        ...(allowedIntegrationIds?.length
+          ? {
+              integrationId: {
+                in: allowedIntegrationIds,
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        publishDate: 'asc',
+      },
+      select: {
+        id: true,
+        state: true,
+        publishDate: true,
+        content: true,
+        integrationId: true,
+        releaseURL: true,
+        error: true,
+        group: true,
+        releaseId: true,
+      },
+    });
+  }
+
+  async getInternalPostsByIntegrationWindow(
+    orgId: string,
+    integrationIds: string[],
+    startDate?: Date,
+    endDate?: Date,
+    states?: State[],
+    allowedIntegrationIds?: string[],
+    limit?: number
+  ): Promise<any[]> {
+    const permittedIntegrationIds = allowedIntegrationIds?.length
+      ? integrationIds.filter((id) => allowedIntegrationIds.includes(id))
+      : integrationIds;
+
+    if (!permittedIntegrationIds.length) {
+      return [];
+    }
+
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        integrationId: {
+          in: permittedIntegrationIds,
+        },
+        deletedAt: null,
+        parentPostId: null,
+        ...(states?.length
+          ? {
+              state: {
+                in: states,
+              },
+            }
+          : {}),
+        ...((startDate || endDate)
+          ? {
+              publishDate: {
+                ...(startDate ? { gte: startDate } : {}),
+                ...(endDate ? { lte: endDate } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        publishDate: 'asc',
+      },
+      ...(limit ? { take: limit } : {}),
+      select: {
+        id: true,
+        state: true,
+        publishDate: true,
+        content: true,
+        integrationId: true,
+        releaseURL: true,
+        error: true,
+        group: true,
+        releaseId: true,
+      },
+    });
+  }
 }
