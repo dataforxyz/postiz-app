@@ -1,0 +1,130 @@
+name: CI
+
+# Expected Forgejo configuration:
+# - repo variable REGISTRY_HOST (optional; defaults to the Forgejo host)
+# - repo variable IMAGE_REPO (optional; defaults to owner/repo)
+# - repo secret REGISTRY_USERNAME
+# - repo secret REGISTRY_PASSWORD
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: postiz-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  targeted-tests:
+    name: Targeted Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.1
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run targeted Jest suite
+        run: pnpm exec jest --config jest.codex.config.cjs --runInBand
+
+  backend-build:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    needs: [targeted-tests]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.12.0"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.1
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build backend
+        run: pnpm run build:backend
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-build]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f Dockerfile.dev -t postiz-app-ci:${{ github.sha }} .
+
+  publish-image:
+    name: Publish Image
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    if: github.event_name != 'pull_request'
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve image target
+        id: meta
+        run: |
+          registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
+          image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
+          branch_tag="${GITHUB_REF_NAME//\//-}"
+          echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
+          echo "branch_tag=${branch_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to registry
+        run: |
+          echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
+            --username "${REGISTRY_USERNAME}" \
+            --password-stdin
+
+      - name: Build and push image
+        run: |
+          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
+          branch_tag="${{ steps.meta.outputs.branch_tag }}"
+          docker build \
+            -f Dockerfile.dev \
+            -t "${image}:sha-${GITHUB_SHA}" \
+            -t "${image}:${branch_tag}" \
+            .
+          docker push "${image}:sha-${GITHUB_SHA}"
+          docker push "${image}:${branch_tag}"
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            docker tag "${image}:sha-${GITHUB_SHA}" "${image}:latest"
+            docker push "${image}:latest"
+          fi
