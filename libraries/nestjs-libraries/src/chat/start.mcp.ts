@@ -18,6 +18,15 @@ const fixAcceptHeader = (req: Request) => {
   }
 };
 import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
+
+const routeParamToString = (value: string | string[] | undefined) => {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+
+  return value || '';
+};
+
 export const startMcp = async (app: INestApplication) => {
   const mastraService = app.get(MastraService, { strict: false });
   const organizationService = app.get(OrganizationService, { strict: false });
@@ -225,6 +234,7 @@ export const startMcp = async (app: INestApplication) => {
 
   app.use('/mcp/:id', async (req: Request, res: Response) => {
     const authRequest = req as Request & { auth?: any };
+    const requestId = routeParamToString(req.params.id);
     // @ts-ignore
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', '*');
@@ -237,7 +247,7 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     // @ts-ignore
-    const auth = await resolveAuth(req.params.id);
+    const auth = await resolveAuth(requestId);
     authRequest.auth = auth?.organization;
     // @ts-ignore
     if (!authRequest.auth || !auth) {
@@ -246,7 +256,7 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     const url = new URL(
-      `/mcp/${req.params.id}`,
+      `/mcp/${requestId}`,
       process.env.NEXT_PUBLIC_BACKEND_URL
     );
 
@@ -254,7 +264,7 @@ export const startMcp = async (app: INestApplication) => {
     await runWithContext(
       // @ts-ignore
       {
-        requestId: req.params.id,
+        requestId,
         auth: authRequest.auth,
         tokenScopes: auth.tokenScopes,
       },
@@ -277,6 +287,7 @@ export const startMcp = async (app: INestApplication) => {
 
   app.use(['/sse/:id', '/message/:id'], async (req: Request, res: Response) => {
     const authRequest = req as Request & { auth?: any };
+    const requestId = routeParamToString(req.params.id);
     // @ts-ignore
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', '*');
@@ -289,7 +300,7 @@ export const startMcp = async (app: INestApplication) => {
     }
 
     // @ts-ignore
-    const auth = await resolveAuth(req.params.id);
+    const auth = await resolveAuth(requestId);
     authRequest.auth = auth?.organization;
     // @ts-ignore
     if (!authRequest.auth || !auth) {
@@ -302,15 +313,15 @@ export const startMcp = async (app: INestApplication) => {
     await runWithContext(
       // @ts-ignore
       {
-        requestId: req.params.id,
+        requestId,
         auth: authRequest.auth,
         tokenScopes: auth.tokenScopes,
       },
       async () => {
         await new MCPServer(serverConfig).startSSE({
           url,
-          ssePath: `/sse/${req.params.id}`,
-          messagePath: `/message/${req.params.id}`,
+          ssePath: `/sse/${requestId}`,
+          messagePath: `/message/${requestId}`,
           req,
           res,
         });
