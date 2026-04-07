@@ -45,37 +45,10 @@ jobs:
       - name: Run targeted Jest suite
         run: pnpm exec jest --config jest.codex.config.cjs --runInBand
 
-  backend-build:
-    name: Backend Build
-    runs-on: ubuntu-latest
-    needs: [targeted-tests]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.12.0"
-          cache: "pnpm"
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.1
-          run_install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build backend
-        run: pnpm run build:backend
-
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [backend-build]
+    needs: [targeted-tests]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
