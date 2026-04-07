@@ -1,0 +1,53 @@
+name: Promote Image
+
+# Expected Forgejo configuration:
+# - repo variable REGISTRY_HOST (optional; defaults to the Forgejo host)
+# - repo variable IMAGE_REPO (optional; defaults to owner/repo)
+# - repo secret REGISTRY_USERNAME
+# - repo secret REGISTRY_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Commit SHA whose image was already built on main"
+        required: true
+      target_tag:
+        description: "Promotion tag to move to that SHA"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+      - name: Resolve image target
+        id: meta
+        run: |
+          registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
+          image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
+          echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to registry
+        run: |
+          echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
+            --username "${REGISTRY_USERNAME}" \
+            --password-stdin
+
+      - name: Retag existing image
+        run: |
+          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
+          source_tag="sha-${{ github.event.inputs.source_sha }}"
+          target_tag="${{ github.event.inputs.target_tag }}"
+          docker pull "${image}:${source_tag}"
+          docker tag "${image}:${source_tag}" "${image}:${target_tag}"
+          docker push "${image}:${target_tag}"

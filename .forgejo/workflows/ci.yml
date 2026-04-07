@@ -102,10 +102,8 @@ jobs:
         run: |
           registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
           image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
-          branch_tag="${GITHUB_REF_NAME//\//-}"
           echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
           echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
-          echo "branch_tag=${branch_tag}" >> "$GITHUB_OUTPUT"
 
       - name: Login to registry
         run: |
@@ -116,15 +114,8 @@ jobs:
       - name: Build and push image
         run: |
           image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
-          branch_tag="${{ steps.meta.outputs.branch_tag }}"
           docker build \
             -f Dockerfile.dev \
             -t "${image}:sha-${GITHUB_SHA}" \
-            -t "${image}:${branch_tag}" \
             .
           docker push "${image}:sha-${GITHUB_SHA}"
-          docker push "${image}:${branch_tag}"
-          if [ "${GITHUB_REF_NAME}" = "main" ]; then
-            docker tag "${image}:sha-${GITHUB_SHA}" "${image}:latest"
-            docker push "${image}:latest"
-          fi
