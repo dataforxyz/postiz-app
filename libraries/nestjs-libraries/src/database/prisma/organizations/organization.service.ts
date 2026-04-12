@@ -130,4 +130,40 @@ export class OrganizationService {
       shortlink
     );
   }
+
+  // ── Instance-admin API helpers ────────────────────────────────────────
+
+  adminCreateOrgAndOwner(name: string, ownerEmail: string, ownerPassword?: string) {
+    return this._organizationRepository.adminCreateOrgAndOwner(
+      name,
+      ownerEmail,
+      ownerPassword
+    );
+  }
+
+  adminListOrgs() {
+    return this._organizationRepository.adminListOrgs();
+  }
+
+  adminDeleteOrg(id: string) {
+    return this._organizationRepository.adminDeleteOrg(id);
+  }
+
+  async adminAddUserToOrg(
+    orgId: string,
+    email: string,
+    role: 'USER' | 'ADMIN',
+    password?: string
+  ) {
+    const user = await this._organizationRepository.adminFindOrCreateUser(
+      email,
+      password
+    );
+    const membership = await this._organizationRepository.adminAddUserToOrg(
+      orgId,
+      user.id,
+      role
+    );
+    return { userId: user.id, membershipId: membership.id };
+  }
 }
