@@ -7,6 +7,10 @@ name: Promote Image
 # - repo secret REGISTRY_PASSWORD
 
 on:
+  push:
+    tags:
+      - staging
+      - prod
   workflow_dispatch:
     inputs:
       source_sha:
@@ -37,17 +41,46 @@ jobs:
           echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
           echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve promotion target
+        id: promote
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            source_sha="${{ github.sha }}"
+            target_tag="${{ github.ref_name }}"
+          else
+            source_sha="${{ github.event.inputs.source_sha }}"
+            target_tag="${{ github.event.inputs.target_tag }}"
+          fi
+          {
+            echo "source_sha=${source_sha}"
+            echo "source_tag=sha-${source_sha}"
+            echo "target_tag=${target_tag}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Login to registry
         run: |
           echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
             --username "${REGISTRY_USERNAME}" \
             --password-stdin
 
+      - name: Verify published image exists
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
+          source_tag="${{ steps.promote.outputs.source_tag }}"
+          if ! docker manifest inspect "${image}:${source_tag}" >/dev/null 2>&1; then
+            echo "Image ${image}:${source_tag} is unavailable — build/publish on main must succeed before promotion." >&2
+            exit 1
+          fi
+          echo "Found ${image}:${source_tag}"
+
       - name: Retag existing image
         run: |
+          set -euo pipefail
           image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
-          source_tag="sha-${{ github.event.inputs.source_sha }}"
-          target_tag="${{ github.event.inputs.target_tag }}"
+          source_tag="${{ steps.promote.outputs.source_tag }}"
+          target_tag="${{ steps.promote.outputs.target_tag }}"
           docker pull "${image}:${source_tag}"
           docker tag "${image}:${source_tag}" "${image}:${target_tag}"
           docker push "${image}:${target_tag}"
