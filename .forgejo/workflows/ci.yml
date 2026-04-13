@@ -18,8 +18,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: postiz-app-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: postiz-app-${{ github.workflow }}-${{ github.job }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   docker-build:
