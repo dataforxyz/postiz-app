@@ -428,4 +428,120 @@ export class OrganizationRepository {
       },
     });
   }
+
+  // ── Instance-admin API helpers ────────────────────────────────────────
+  //
+  // These methods back the /public/v1/admin/* surface. Unlike
+  // createMaxUser (SaaS reseller path), they do NOT:
+  //  - Mangle the email (no `email+saas@domain`)
+  //  - Auto-provision an ULTIMATE subscription
+  //  - Require an external user id / saasName
+  // They behave like a normal sign-up would if one existed as an API,
+  // letting operator tooling provision tenants cleanly.
+
+  async adminCreateOrgAndOwner(
+    name: string,
+    ownerEmail: string,
+    ownerPassword?: string
+  ) {
+    const rawPassword = ownerPassword || makeId(24);
+    return this._organization.model.organization.create({
+      select: {
+        id: true,
+        apiKey: true,
+        users: {
+          select: {
+            userId: true,
+            role: true,
+          },
+        },
+      },
+      data: {
+        name,
+        apiKey: AuthService.fixedEncryption(makeId(20)),
+        isTrailing: false,
+        users: {
+          create: {
+            role: Role.SUPERADMIN,
+            user: {
+              create: {
+                activated: true,
+                email: ownerEmail,
+                name: ownerEmail.split('@')[0],
+                providerName: 'LOCAL',
+                password: AuthService.hashPassword(rawPassword),
+                timezone: 0,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async adminListOrgs() {
+    return this._organization.model.organization.findMany({
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        apiKey: true,
+        _count: {
+          select: {
+            users: true,
+            Integration: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async adminDeleteOrg(id: string) {
+    // Prisma cascade rules handle most dependent rows; any that lack
+    // cascade should be explicitly cleared by the caller before this.
+    return this._organization.model.organization.delete({
+      where: { id },
+    });
+  }
+
+  async adminFindOrCreateUser(email: string, password?: string) {
+    const existing = await this._user.model.user.findFirst({
+      where: { providerName: 'LOCAL', email },
+    });
+    if (existing) return existing;
+
+    const rawPassword = password || makeId(24);
+    return this._user.model.user.create({
+      data: {
+        activated: true,
+        email,
+        name: email.split('@')[0],
+        providerName: 'LOCAL',
+        password: AuthService.hashPassword(rawPassword),
+        timezone: 0,
+      },
+    });
+  }
+
+  async adminAddUserToOrg(
+    orgId: string,
+    userId: string,
+    role: 'USER' | 'ADMIN'
+  ) {
+    // Idempotent: returning the existing membership if already present.
+    const existing = await this._userOrg.model.userOrganization.findFirst({
+      where: { organizationId: orgId, userId },
+    });
+    if (existing) return existing;
+
+    return this._userOrg.model.userOrganization.create({
+      data: {
+        userId,
+        organizationId: orgId,
+        role: role as Role,
+        disabled: false,
+      },
+    });
+  }
 }
