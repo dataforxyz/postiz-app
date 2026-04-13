@@ -7,10 +7,6 @@ name: Promote Image
 # - repo secret REGISTRY_PASSWORD
 
 on:
-  push:
-    tags:
-      - staging
-      - prod
   workflow_dispatch:
     inputs:
       source_sha:

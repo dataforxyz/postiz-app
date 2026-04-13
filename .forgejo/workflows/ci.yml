@@ -12,6 +12,9 @@ on:
   push:
     branches:
       - main
+    tags:
+      - staging
+      - prod
   workflow_dispatch:
 
 concurrency:
@@ -65,3 +68,36 @@ jobs:
             -t "${image}:sha-${GITHUB_SHA}" \
             .
           docker push "${image}:sha-${GITHUB_SHA}"
+
+  promote-tag:
+    name: Promote to ${{ github.ref_name }}
+    runs-on: ubuntu-latest-xl
+    needs: [publish-image]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+      - name: Resolve image target
+        id: meta
+        run: |
+          registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
+          image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
+          echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to registry
+        run: |
+          echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
+            --username "${REGISTRY_USERNAME}" \
+            --password-stdin
+
+      - name: Retag sha to ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
+          docker pull "${image}:sha-${GITHUB_SHA}"
+          docker tag "${image}:sha-${GITHUB_SHA}" "${image}:${{ github.ref_name }}"
+          docker push "${image}:${{ github.ref_name }}"
