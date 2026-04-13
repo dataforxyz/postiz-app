@@ -22,7 +22,7 @@ on:
 
 jobs:
   promote:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-xl
     env:
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       IMAGE_REPO: ${{ vars.IMAGE_REPO }}
