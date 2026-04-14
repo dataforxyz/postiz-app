@@ -1,0 +1,66 @@
+name: Publish Image
+
+# Expected Forgejo configuration:
+# - repo variable REGISTRY_HOST (optional; defaults to the Forgejo host)
+# - repo variable IMAGE_REPO (optional; defaults to owner/repo)
+# - repo secret REGISTRY_USERNAME
+# - repo secret REGISTRY_PASSWORD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branch, tag, or full commit SHA to build and publish"
+        required: false
+
+concurrency:
+  group: postiz-app-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-image:
+    name: Publish Image
+    runs-on: ubuntu-latest-xl
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve image target
+        id: meta
+        run: |
+          registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
+          image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
+          full_sha="$(git rev-parse HEAD)"
+          short_sha="${full_sha:0:7}"
+          echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
+          echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
+          echo "full_sha=${full_sha}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to registry
+        run: |
+          echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
+            --username "${REGISTRY_USERNAME}" \
+            --password-stdin
+
+      - name: Build and push image
+        run: |
+          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
+          docker build \
+            -f Dockerfile.dev \
+            -t "${image}:sha-${{ steps.meta.outputs.full_sha }}" \
+            -t "${image}:sha-${{ steps.meta.outputs.short_sha }}" \
+            .
+          docker push "${image}:sha-${{ steps.meta.outputs.full_sha }}"
+          docker push "${image}:sha-${{ steps.meta.outputs.short_sha }}"
