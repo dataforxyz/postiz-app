@@ -15,16 +15,63 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: postiz-app-${{ github.workflow }}-${{ github.job }}-${{ github.ref }}
+  group: postiz-app-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   docker-build:
-    name: Docker Build
+    name: Docker Build & Publish
     runs-on: ubuntu-latest-xl
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      IMAGE_REPO: ${{ vars.IMAGE_REPO }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Build image
-        run: docker build -f Dockerfile.dev -t postiz-app-ci:${{ github.sha }} .
+      - name: Resolve image target
+        id: meta
+        run: |
+          registry_host="${REGISTRY_HOST:-${GITHUB_SERVER_URL#https://}}"
+          image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
+          full_sha="$(git rev-parse HEAD)"
+          short_sha="${full_sha:0:7}"
+          {
+            echo "registry_host=${registry_host}"
+            echo "image_repo=${image_repo}"
+            echo "image=${registry_host}/${image_repo}"
+            echo "full_sha=${full_sha}"
+            echo "short_sha=${short_sha}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to registry
+        run: |
+          echo "${REGISTRY_PASSWORD}" | docker login "${{ steps.meta.outputs.registry_host }}" \
+            --username "${REGISTRY_USERNAME}" \
+            --password-stdin
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.dev
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.full_sha }}
+            ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.short_sha }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}:buildcache,mode=max', steps.meta.outputs.image) || '' }}
+
+      - name: Print published tags
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          echo "Published:"
+          echo "  ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.full_sha }}"
+          echo "  ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.short_sha }}"
