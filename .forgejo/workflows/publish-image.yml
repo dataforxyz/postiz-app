@@ -1,5 +1,7 @@
-name: Publish Image
+name: Publish Image (manual)
 
+# Manual/ref-specific publish. Default main-branch publish lives in ci.yml.
+#
 # Expected Forgejo configuration:
 # - repo variable REGISTRY_HOST (optional; defaults to the Forgejo host)
 # - repo variable IMAGE_REPO (optional; defaults to owner/repo)
@@ -7,9 +9,6 @@ name: Publish Image
 # - repo secret REGISTRY_PASSWORD
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       source_ref:
@@ -43,10 +42,16 @@ jobs:
           image_repo="${IMAGE_REPO:-${GITHUB_REPOSITORY,,}}"
           full_sha="$(git rev-parse HEAD)"
           short_sha="${full_sha:0:7}"
-          echo "registry_host=${registry_host}" >> "$GITHUB_OUTPUT"
-          echo "image_repo=${image_repo}" >> "$GITHUB_OUTPUT"
-          echo "full_sha=${full_sha}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          {
+            echo "registry_host=${registry_host}"
+            echo "image_repo=${image_repo}"
+            echo "image=${registry_host}/${image_repo}"
+            echo "full_sha=${full_sha}"
+            echo "short_sha=${short_sha}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to registry
         run: |
@@ -55,12 +60,13 @@ jobs:
             --password-stdin
 
       - name: Build and push image
-        run: |
-          image="${{ steps.meta.outputs.registry_host }}/${{ steps.meta.outputs.image_repo }}"
-          docker build \
-            -f Dockerfile.dev \
-            -t "${image}:sha-${{ steps.meta.outputs.full_sha }}" \
-            -t "${image}:sha-${{ steps.meta.outputs.short_sha }}" \
-            .
-          docker push "${image}:sha-${{ steps.meta.outputs.full_sha }}"
-          docker push "${image}:sha-${{ steps.meta.outputs.short_sha }}"
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.dev
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.full_sha }}
+            ${{ steps.meta.outputs.image }}:sha-${{ steps.meta.outputs.short_sha }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.image }}:buildcache,mode=max
