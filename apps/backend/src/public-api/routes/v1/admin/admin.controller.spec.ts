@@ -1,3 +1,10 @@
+// Prevent the nostr-tools ESM-only transitive dependency from being
+// resolved during tests.  ApiTokenService is fully mocked below.
+jest.mock(
+  '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service',
+  () => ({ ApiTokenService: class {} })
+);
+
 import {
   BadRequestException,
   NotFoundException,
@@ -9,6 +16,7 @@ describe('AdminController', () => {
     adminCreateOrgAndOwner: jest.fn(),
     adminListOrgs: jest.fn(),
     adminDeleteOrg: jest.fn(),
+    adminUpdateOrg: jest.fn(),
     adminAddUserToOrg: jest.fn(),
     getOrgById: jest.fn(),
   };
@@ -148,6 +156,87 @@ describe('AdminController', () => {
     it('rethrows other errors', async () => {
       orgService.adminDeleteOrg.mockRejectedValue(new Error('db down'));
       await expect(controller.deleteOrg('x')).rejects.toThrow('db down');
+    });
+  });
+
+  // ── updateOrg ────────────────────────────────────────────────────────
+
+  describe('updateOrg', () => {
+    const now = new Date('2026-04-20');
+
+    it('happy path with name only returns 200 shape', async () => {
+      orgService.adminUpdateOrg.mockResolvedValue({
+        id: 'org-1',
+        name: 'New Name',
+        description: null,
+        createdAt: now,
+      });
+      const result = await controller.updateOrg('org-1', { name: 'New Name' });
+      expect(result).toEqual({
+        id: 'org-1',
+        name: 'New Name',
+        description: null,
+        createdAt: now,
+      });
+      expect(orgService.adminUpdateOrg).toHaveBeenCalledWith('org-1', {
+        name: 'New Name',
+      });
+    });
+
+    it('happy path with description only', async () => {
+      orgService.adminUpdateOrg.mockResolvedValue({
+        id: 'org-2',
+        name: 'Acme',
+        description: 'Our tenant',
+        createdAt: now,
+      });
+      const result = await controller.updateOrg('org-2', {
+        description: 'Our tenant',
+      });
+      expect(orgService.adminUpdateOrg).toHaveBeenCalledWith('org-2', {
+        description: 'Our tenant',
+      });
+      expect(result.description).toBe('Our tenant');
+    });
+
+    it('happy path with both fields', async () => {
+      orgService.adminUpdateOrg.mockResolvedValue({
+        id: 'org-3',
+        name: 'Renamed',
+        description: 'desc',
+        createdAt: now,
+      });
+      await controller.updateOrg('org-3', {
+        name: 'Renamed',
+        description: 'desc',
+      });
+      expect(orgService.adminUpdateOrg).toHaveBeenCalledWith('org-3', {
+        name: 'Renamed',
+        description: 'desc',
+      });
+    });
+
+    it('400 when body is empty', async () => {
+      await expect(controller.updateOrg('org-1', {} as any)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(orgService.adminUpdateOrg).not.toHaveBeenCalled();
+    });
+
+    it('404 when org does not exist (Prisma P2025)', async () => {
+      const err: any = new Error('not found');
+      err.code = 'P2025';
+      orgService.adminUpdateOrg.mockRejectedValue(err);
+      await expect(
+        controller.updateOrg('nope', { name: 'X' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rethrows unexpected errors', async () => {
+      orgService.adminUpdateOrg.mockRejectedValue(new Error('db down'));
+      await expect(
+        controller.updateOrg('org-1', { name: 'X' })
+      ).rejects.toThrow('db down');
     });
   });
 

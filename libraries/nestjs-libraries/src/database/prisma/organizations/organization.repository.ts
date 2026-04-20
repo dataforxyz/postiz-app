@@ -505,6 +505,22 @@ export class OrganizationRepository {
     });
   }
 
+  async adminUpdateOrg(
+    id: string,
+    updates: { name?: string; description?: string }
+  ) {
+    return this._organization.model.organization.update({
+      where: { id },
+      data: updates,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+      },
+    });
+  }
+
   async adminFindOrCreateUser(email: string, password?: string) {
     const existing = await this._user.model.user.findFirst({
       where: { providerName: 'LOCAL', email },

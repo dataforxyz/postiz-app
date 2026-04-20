@@ -12,6 +12,7 @@ describe('OrganizationRepository admin helpers', () => {
     create: jest.fn(),
     findMany: jest.fn(),
     delete: jest.fn(),
+    update: jest.fn(),
   };
   const userOrg = {
     findFirst: jest.fn(),
@@ -113,6 +114,54 @@ describe('OrganizationRepository admin helpers', () => {
       expect(organization.delete).toHaveBeenCalledWith({
         where: { id: 'org-xyz' },
       });
+    });
+  });
+
+  // ── adminUpdateOrg ─────────────────────────────────────────────────
+
+  describe('adminUpdateOrg', () => {
+    it('passes id and updates to prisma.update with correct select', async () => {
+      const now = new Date('2026-04-20');
+      organization.update.mockResolvedValue({
+        id: 'org-1',
+        name: 'Renamed',
+        description: null,
+        createdAt: now,
+      });
+
+      const result = await mkRepo().adminUpdateOrg('org-1', { name: 'Renamed' });
+
+      expect(organization.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: { name: 'Renamed' },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          createdAt: true,
+        },
+      });
+      expect(result).toEqual({
+        id: 'org-1',
+        name: 'Renamed',
+        description: null,
+        createdAt: now,
+      });
+    });
+
+    it('passes description-only updates', async () => {
+      organization.update.mockResolvedValue({
+        id: 'org-2',
+        name: 'Acme',
+        description: 'Our tenant',
+        createdAt: new Date(),
+      });
+
+      await mkRepo().adminUpdateOrg('org-2', { description: 'Our tenant' });
+
+      const args = organization.update.mock.calls[0][0];
+      expect(args.data).toEqual({ description: 'Our tenant' });
+      expect(args.where).toEqual({ id: 'org-2' });
     });
   });
 

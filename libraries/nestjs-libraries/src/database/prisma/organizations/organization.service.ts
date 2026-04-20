@@ -149,6 +149,10 @@ export class OrganizationService {
     return this._organizationRepository.adminDeleteOrg(id);
   }
 
+  adminUpdateOrg(id: string, updates: { name?: string; description?: string }) {
+    return this._organizationRepository.adminUpdateOrg(id, updates);
+  }
+
   async adminAddUserToOrg(
     orgId: string,
     email: string,

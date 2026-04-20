@@ -7,6 +7,7 @@ import {
   HttpCode,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Logger,
 } from '@nestjs/common';
@@ -93,6 +94,34 @@ export class AdminController {
       throw err;
     }
     return;
+  }
+
+  @Patch('/orgs/:id')
+  async updateOrg(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      description?: string;
+    }
+  ) {
+    const updates: { name?: string; description?: string } = {};
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.description !== undefined) updates.description = body.description;
+
+    if (Object.keys(updates).length === 0) {
+      throw new BadRequestException('at least one field required');
+    }
+
+    try {
+      const org = await this._orgService.adminUpdateOrg(id, updates);
+      return org;
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        throw new NotFoundException('Organization not found');
+      }
+      throw err;
+    }
   }
 
   @Post('/orgs/:id/users')
