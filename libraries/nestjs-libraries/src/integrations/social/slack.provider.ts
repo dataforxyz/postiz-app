@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { SlackDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/slack.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class SlackProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Slack has moderate API limits
@@ -284,6 +285,24 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
   async changeNickname(id: string, accessToken: string, name: string) {
     return {
       name,
+    };
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'slack',
+      textMaxChars: 400000,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: ['webhook_based'],
+      textFormat: 'markdown',
+      notes: 'Rich block messages',
     };
   }
 }

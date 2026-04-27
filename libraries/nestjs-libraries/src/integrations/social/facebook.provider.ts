@@ -11,6 +11,7 @@ import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.ab
 import { FacebookDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/facebook.dto';
 import { DribbbleDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/dribbble.dto';
 import { Integration } from '@prisma/client';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class FacebookProvider extends SocialAbstract implements SocialProvider {
   identifier = 'facebook';
@@ -640,5 +641,23 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       console.error('Error fetching Facebook post analytics:', err);
       return [];
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'facebook',
+      textMaxChars: 63206,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel', 'reel'],
+      maxImages: null,
+      maxImageBytes: 4194304,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Videos posted to /videos return facebook.com/reel/ URLs',
+    };
   }
 }

@@ -5,11 +5,64 @@ jest.mock(
   () => ({ ApiTokenService: class {} })
 );
 
+// integration.manager pulls all 30+ providers (including nostr-tools, which
+// ships ESM). We don't need real providers — we just need a deterministic
+// list with .capabilities() returning fixture shapes.
+jest.mock(
+  '@gitroom/nestjs-libraries/integrations/integration.manager',
+  () => {
+    const make = (id: string, over: any = {}) => ({
+      identifier: id,
+      capabilities() {
+        return {
+          identifier: id,
+          textMaxChars: null,
+          textMaxCharsPremium: null,
+          mediaKinds: [],
+          maxImages: null,
+          maxImageBytes: null,
+          maxVideoSeconds: null,
+          maxVideoSecondsDynamic: false,
+          aspectRatios: [],
+          allowedExtensions: [],
+          flags: [],
+          textFormat: 'plain',
+          notes: '',
+          ...over,
+        };
+      },
+    });
+    const ids = [
+      'x', 'instagram', 'instagram-standalone', 'linkedin', 'linkedin-page',
+      'facebook', 'tiktok', 'youtube', 'pinterest', 'reddit', 'bluesky',
+      'mastodon', 'threads', 'telegram', 'discord', 'slack', 'dribbble',
+      'wordpress', 'medium', 'devto', 'hashnode', 'lemmy', 'nostr',
+      'wrapcast', 'vk', 'gmb', 'skool', 'mewe', 'moltbook', 'whop',
+      'kick', 'twitch', 'listmonk',
+    ];
+    const list = ids.map((id) => {
+      if (id === 'x') {
+        return make(id, {
+          textMaxChars: 200,
+          textMaxCharsPremium: 4000,
+          mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
+        });
+      }
+      return make(id);
+    });
+    return {
+      socialIntegrationList: list,
+      IntegrationManager: class {},
+    };
+  }
+);
+
 import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
 import { AdminController } from './admin.controller';
+import { socialIntegrationList } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 
 describe('AdminController', () => {
   const orgService = {
@@ -26,9 +79,15 @@ describe('AdminController', () => {
 
   let controller: AdminController;
 
+  const integrationManager = {} as any;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    controller = new AdminController(orgService as any, apiTokenService as any);
+    controller = new AdminController(
+      orgService as any,
+      apiTokenService as any,
+      integrationManager
+    );
   });
 
   // ── createOrg ────────────────────────────────────────────────────────
@@ -357,6 +416,92 @@ describe('AdminController', () => {
       await expect(
         controller.mintApiToken('org-1', { name: '   ' })
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── capabilities ────────────────────────────────────────────────────
+
+  describe('capabilities', () => {
+    const SCHEMA_KEYS: Array<keyof import(
+      '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities'
+    ).IntegrationCapabilities> = [
+      'identifier',
+      'textMaxChars',
+      'textMaxCharsPremium',
+      'mediaKinds',
+      'maxImages',
+      'maxImageBytes',
+      'maxVideoSeconds',
+      'maxVideoSecondsDynamic',
+      'aspectRatios',
+      'allowedExtensions',
+      'flags',
+      'textFormat',
+      'notes',
+    ];
+
+    it('returns a map keyed by every registered provider identifier', () => {
+      const result = controller.capabilities();
+      expect(Object.keys(result).length).toBeGreaterThanOrEqual(30);
+      for (const id of [
+        'x',
+        'instagram',
+        'linkedin',
+        'tiktok',
+        'youtube',
+        'bluesky',
+      ]) {
+        expect(result[id]).toBeDefined();
+        expect(result[id].identifier).toBe(id);
+      }
+    });
+
+    it('each capability matches the schema shape', () => {
+      const result = controller.capabilities();
+      for (const [id, cap] of Object.entries(result)) {
+        for (const k of SCHEMA_KEYS) {
+          expect(cap).toHaveProperty(k);
+        }
+        expect(typeof cap.identifier).toBe('string');
+        expect(cap.identifier).toBe(id);
+        expect(Array.isArray(cap.mediaKinds)).toBe(true);
+        expect(Array.isArray(cap.aspectRatios)).toBe(true);
+        expect(Array.isArray(cap.allowedExtensions)).toBe(true);
+        expect(Array.isArray(cap.flags)).toBe(true);
+        expect(['plain', 'markdown', 'html']).toContain(cap.textFormat);
+        expect(typeof cap.maxVideoSecondsDynamic).toBe('boolean');
+      }
+    });
+
+    it('does not leak env / version / hostname in any capability value', () => {
+      const result = controller.capabilities();
+      const blob = JSON.stringify(result).toLowerCase();
+      for (const banned of [
+        'process.env',
+        'instance_admin_key',
+        'http://',
+        'https://',
+        'version',
+      ]) {
+        expect(blob.includes(banned)).toBe(false);
+      }
+    });
+
+    it('GET single capability returns one provider', () => {
+      const cap = controller.capability('x');
+      expect(cap.identifier).toBe('x');
+      expect(cap.textMaxChars).toBe(200);
+      expect(cap.textMaxCharsPremium).toBe(4000);
+    });
+
+    it('GET single capability with unknown id throws 404', () => {
+      expect(() => controller.capability('does-not-exist')).toThrow(
+        NotFoundException
+      );
+    });
+
+    it('socialIntegrationList is non-empty (sanity)', () => {
+      expect(socialIntegrationList.length).toBeGreaterThanOrEqual(30);
     });
   });
 });

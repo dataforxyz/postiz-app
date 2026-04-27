@@ -12,6 +12,7 @@ import { Integration } from '@prisma/client';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { SkoolDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/skool.dto';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class SkoolProvider extends SocialAbstract implements SocialProvider {
   identifier = 'skool';
@@ -329,5 +330,23 @@ export class SkoolProvider extends SocialAbstract implements SocialProvider {
         status: 'success',
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'skool',
+      textMaxChars: 5000,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'plain',
+      notes: '',
+    };
   }
 }

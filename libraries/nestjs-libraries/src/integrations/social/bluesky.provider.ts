@@ -27,6 +27,7 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import axios from 'axios';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 async function reduceImageBySize(url: string, maxSizeKB = 976) {
   try {
@@ -571,5 +572,23 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
 
   mentionFormat(idOrHandle: string, name: string) {
     return `@${idOrHandle}`;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'bluesky',
+      textMaxChars: 300,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: 4,
+      maxImageBytes: 999424,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: ['mutually_exclusive_image_video', 'auto_resize_images'],
+      textFormat: 'plain',
+      notes: 'Image auto-resized via sharp; image and video are mutually exclusive in one post',
+    };
   }
 }

@@ -14,6 +14,11 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
+import {
+  IntegrationManager,
+  socialIntegrationList,
+} from '@gitroom/nestjs-libraries/integrations/integration.manager';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 /**
  * Instance-admin API for operator tooling. Mounted at /public/v1/admin.
@@ -35,8 +40,40 @@ export class AdminController {
 
   constructor(
     private _orgService: OrganizationService,
-    private _apiTokenService: ApiTokenService
+    private _apiTokenService: ApiTokenService,
+    private _integrationManager: IntegrationManager
   ) {}
+
+  /**
+   * Returns the static posting-capability shape for every registered
+   * social provider. Read by juston-app to drive compose-time validation
+   * (text length, media kinds, video duration caps) without hard-coding.
+   *
+   * Pulled directly from each provider's `capabilities()` method so the
+   * source of truth lives next to the posting code. No env / version /
+   * hostname leaks — only the static shape.
+   */
+  @Get('/capabilities')
+  capabilities(): Record<string, IntegrationCapabilities> {
+    return socialIntegrationList.reduce<
+      Record<string, IntegrationCapabilities>
+    >((acc, provider) => {
+      const cap = provider.capabilities();
+      acc[cap.identifier] = cap;
+      return acc;
+    }, {});
+  }
+
+  @Get('/capabilities/:identifier')
+  capability(@Param('identifier') identifier: string): IntegrationCapabilities {
+    const provider = socialIntegrationList.find(
+      (p) => p.capabilities().identifier === identifier
+    );
+    if (!provider) {
+      throw new NotFoundException(`Unknown provider: ${identifier}`);
+    }
+    return provider.capabilities();
+  }
 
   @Post('/orgs')
   async createOrg(

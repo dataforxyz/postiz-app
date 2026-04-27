@@ -12,6 +12,7 @@ import { ListmonkDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-sett
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import slugify from 'slugify';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class ListmonkProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 100; // Bluesky has moderate rate limits
@@ -273,5 +274,23 @@ export class ListmonkProvider extends SocialAbstract implements SocialProvider {
         postId,
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'listmonk',
+      textMaxChars: 100000000,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'gif'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'html',
+      notes: 'Email newsletter; effectively unlimited body length',
+    };
   }
 }

@@ -9,6 +9,7 @@ import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.ab
 import { Integration } from '@prisma/client';
 import { TwitchDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/twitch.dto';
 import { timer } from '@gitroom/helpers/utils/timer';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class TwitchProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 1;
@@ -287,5 +288,23 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
         status: result.isSent ? 'posted' : 'error',
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'twitch',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Twitch chat message only; stream metadata via separate flow',
+    };
   }
 }

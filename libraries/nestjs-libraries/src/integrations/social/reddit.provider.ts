@@ -14,6 +14,7 @@ import axios from 'axios';
 import WebSocket from 'ws';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Integration } from '@prisma/client';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 // @ts-ignore
 global.WebSocket = WebSocket;
@@ -481,6 +482,24 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           id: p.id,
           name: p.text,
         })) || [],
+    };
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'reddit',
+      textMaxChars: 10000,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: 1,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: ['requires_subreddit'],
+      textFormat: 'plain',
+      notes: 'Per-subreddit flair; multi-subreddit cross-post',
     };
   }
 }

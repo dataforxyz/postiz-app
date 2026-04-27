@@ -9,6 +9,7 @@ import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.ab
 import { Integration } from '@prisma/client';
 import { DiscordDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/discord.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class DiscordProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 5; // Discord has generous rate limits for webhook posting
@@ -367,5 +368,23 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
       return name;
     }
     return `[[[@${idOrHandle.replace('@', '')}]]]`;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'discord',
+      textMaxChars: 1980,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video', 'gif'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: ['webhook_based'],
+      textFormat: 'markdown',
+      notes: '',
+    };
   }
 }

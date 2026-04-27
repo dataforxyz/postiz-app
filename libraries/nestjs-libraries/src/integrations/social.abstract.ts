@@ -1,6 +1,7 @@
 import { timer } from '@gitroom/helpers/utils/timer';
 import { Integration } from '@prisma/client';
 import { ApplicationFailure } from '@temporalio/activity';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class RefreshToken extends ApplicationFailure {
   constructor(identifier: string, json: string, body: BodyInit, message = '') {
@@ -49,6 +50,13 @@ function safeStringify(obj: any) {
 export abstract class SocialAbstract {
   abstract identifier: string;
   maxConcurrentJob = 1;
+
+  /**
+   * Static, per-provider posting capabilities surfaced via
+   * GET /public/v1/admin/capabilities. Each provider must declare its own
+   * limits — see social.integrations.capabilities.ts for the shape.
+   */
+  abstract capabilities(): IntegrationCapabilities;
 
   public handleErrors(
     body: string

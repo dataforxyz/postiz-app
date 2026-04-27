@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { KickDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/kick.dto';
 import { createHash, randomBytes } from 'crypto';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class KickProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3;
@@ -223,5 +224,23 @@ export class KickProvider extends SocialAbstract implements SocialProvider {
         status: data.data?.is_sent || data.is_sent ? 'posted' : 'error',
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'kick',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Kick chat message; maxLength source comment says 500',
+    };
   }
 }

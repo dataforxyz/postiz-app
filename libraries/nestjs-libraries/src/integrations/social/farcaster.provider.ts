@@ -12,6 +12,7 @@ import { Integration } from '@prisma/client';
 import { FarcasterDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/farcaster.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const client = new NeynarAPIClient({
   apiKey: process.env.NEYNAR_SECRET_KEY || '00000000-000-0000-000-000000000000',
@@ -180,5 +181,23 @@ export class FarcasterProvider
         id: p.id,
       };
     });
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'wrapcast',
+      textMaxChars: 800,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Identifier in Postiz source is wrapcast, not farcaster',
+    };
   }
 }

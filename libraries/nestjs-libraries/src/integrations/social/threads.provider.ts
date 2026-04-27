@@ -13,6 +13,7 @@ import { capitalize, chunk } from 'lodash';
 import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { Integration } from '@prisma/client';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   identifier = 'threads';
@@ -617,4 +618,22 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
   // mentionFormat(idOrHandle: string, name: string) {
   //   return `@${idOrHandle}`;
   // }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'threads',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: [],
+      flags: ['supports_threads'],
+      textFormat: 'plain',
+      notes: 'TEXT-only when no media attached',
+    };
+  }
 }
