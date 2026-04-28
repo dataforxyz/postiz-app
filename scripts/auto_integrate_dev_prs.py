@@ -641,6 +641,28 @@ _BASELINE_RED_UNTIL = Path("/tmp/postiz-app-integrator-baseline-red-until")
 _BASELINE_RED_CLEAR = Path("/tmp/postiz-app-integrator-baseline-red-clear")
 _PR_ATTEMPTS_FILE = Path("/tmp/postiz-app-integrator-pr-attempts.json")
 _KILL_SWITCH = Path("/tmp/postiz-app-integrator-stop")
+_RELOAD_PENDING = Path("/tmp/postiz-app-integrator-reload-pending")
+
+
+def _write_reload_pending(merge_sha: str) -> None:
+    """Write the reload-pending flag with the merge commit SHA.
+
+    Idempotent: if the flag already contains this exact SHA, does nothing.
+    Called after every successful merge so reload_on_merge.sh can pick up
+    the new code and restart the running postiz services.
+    """
+    sha = (merge_sha or "").strip()
+    try:
+        existing = _RELOAD_PENDING.read_text().strip() if _RELOAD_PENDING.exists() else ""
+        if existing and existing == sha:
+            return  # already queued for this SHA
+    except OSError:
+        pass
+    try:
+        _RELOAD_PENDING.write_text(sha + "\n")
+        print(f"  [reload-pending] wrote {_RELOAD_PENDING} (sha={sha[:12] if sha else '<empty>'})")
+    except OSError as exc:
+        print(f"  [warn] could not write reload-pending flag: {exc}")
 
 
 # ── baseline backoff helpers ──────────────────────────────────────────────────
@@ -1170,6 +1192,7 @@ def main(argv: list[str] | None = None) -> int:
         merged += 1
         print(f"  merged at {merge_sha[:12]}")
         record_merge_timestamp()
+        _write_reload_pending(merge_sha)
 
     if dry_run:
         print(
