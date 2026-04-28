@@ -147,6 +147,7 @@ export class MediumProvider extends SocialAbstract implements SocialProvider {
       identifier: 'medium',
       textMaxChars: 100000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'gif'],
       maxImages: null,
       maxImageBytes: null,
@@ -156,7 +157,7 @@ export class MediumProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: '',
+      notes: 'Blog post title — no Postiz-side limit enforced',
     };
   }
 }

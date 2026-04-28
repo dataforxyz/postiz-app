@@ -263,6 +263,7 @@ export class WordpressProvider
       identifier: 'wordpress',
       textMaxChars: 100000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,
@@ -272,7 +273,7 @@ export class WordpressProvider
       allowedExtensions: [],
       flags: [],
       textFormat: 'html',
-      notes: '',
+      notes: 'Blog post title — no Postiz-side limit enforced',
     };
   }
 }

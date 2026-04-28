@@ -337,6 +337,7 @@ export class SkoolProvider extends SocialAbstract implements SocialProvider {
       identifier: 'skool',
       textMaxChars: 5000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,
@@ -346,7 +347,7 @@ export class SkoolProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'plain',
-      notes: '',
+      notes: 'Group post title — no Postiz-side limit enforced',
     };
   }
 }

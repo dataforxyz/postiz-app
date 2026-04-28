@@ -315,6 +315,7 @@ export class VkProvider extends SocialAbstract implements SocialProvider {
       identifier: 'vk',
       textMaxChars: 2048,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: null,
       maxImageBytes: null,

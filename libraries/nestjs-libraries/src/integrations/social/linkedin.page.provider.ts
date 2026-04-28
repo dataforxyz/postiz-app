@@ -693,6 +693,7 @@ export class LinkedinPageProvider
       identifier: 'linkedin-page',
       textMaxChars: 3000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'carousel', 'document_pdf'],
       maxImages: null,
       maxImageBytes: null,

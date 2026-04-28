@@ -298,6 +298,7 @@ export class LemmyProvider extends SocialAbstract implements SocialProvider {
       identifier: 'lemmy',
       textMaxChars: 10000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: 1,
       maxImageBytes: null,
@@ -307,7 +308,7 @@ export class LemmyProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: '',
+      notes: 'Post title has no Postiz-side limit (Lemmy platform limit is 200 chars)',
     };
   }
 }

@@ -648,6 +648,7 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       identifier: 'facebook',
       textMaxChars: 63206,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'carousel', 'reel'],
       maxImages: null,
       maxImageBytes: 4194304,

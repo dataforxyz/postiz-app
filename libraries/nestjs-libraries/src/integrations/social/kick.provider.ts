@@ -231,6 +231,7 @@ export class KickProvider extends SocialAbstract implements SocialProvider {
       identifier: 'kick',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: null,
       maxImageBytes: null,

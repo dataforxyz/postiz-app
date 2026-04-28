@@ -240,6 +240,7 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
       identifier: 'nostr',
       textMaxChars: 100000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,

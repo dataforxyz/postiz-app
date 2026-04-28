@@ -379,6 +379,7 @@ export class WhopProvider extends SocialAbstract implements SocialProvider {
       identifier: 'whop',
       textMaxChars: 50000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text'],
       maxImages: null,
       maxImageBytes: null,
@@ -388,7 +389,7 @@ export class WhopProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: '',
+      notes: 'Optional forum-post title — no Postiz-side limit enforced',
     };
   }
 }

@@ -295,6 +295,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
       identifier: 'twitch',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text'],
       maxImages: null,
       maxImageBytes: null,

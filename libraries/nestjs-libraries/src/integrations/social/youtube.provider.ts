@@ -523,6 +523,7 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
       identifier: 'youtube',
       textMaxChars: 5000,
       textMaxCharsPremium: null,
+      titleMaxChars: 100,
       mediaKinds: ['video'],
       maxImages: null,
       maxImageBytes: null,

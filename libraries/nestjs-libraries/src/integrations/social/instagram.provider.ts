@@ -927,6 +927,7 @@ export class InstagramProvider
       identifier: 'instagram',
       textMaxChars: 2200,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'carousel', 'story', 'reel'],
       maxImages: 10,
       maxImageBytes: 4194304,

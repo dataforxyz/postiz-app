@@ -281,6 +281,7 @@ export class ListmonkProvider extends SocialAbstract implements SocialProvider {
       identifier: 'listmonk',
       textMaxChars: 100000000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'gif'],
       maxImages: null,
       maxImageBytes: null,
@@ -290,7 +291,7 @@ export class ListmonkProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'html',
-      notes: 'Email newsletter; effectively unlimited body length',
+      notes: 'Email newsletter; effectively unlimited body length; subject acts as title — no Postiz-side limit enforced',
     };
   }
 }

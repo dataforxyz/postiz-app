@@ -199,6 +199,7 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
       identifier: 'moltbook',
       textMaxChars: 300,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,

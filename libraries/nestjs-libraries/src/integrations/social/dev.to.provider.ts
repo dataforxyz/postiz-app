@@ -192,6 +192,7 @@ export class DevToProvider extends SocialAbstract implements SocialProvider {
       identifier: 'devto',
       textMaxChars: 100000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'gif'],
       maxImages: null,
       maxImageBytes: null,
@@ -201,7 +202,7 @@ export class DevToProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: 'Postiz identifier is devto, not dev-to',
+      notes: 'Postiz identifier is devto, not dev-to; blog post title — no Postiz-side limit enforced',
     };
   }
 }

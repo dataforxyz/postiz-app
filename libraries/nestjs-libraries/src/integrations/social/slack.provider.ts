@@ -293,6 +293,7 @@ export class SlackProvider extends SocialAbstract implements SocialProvider {
       identifier: 'slack',
       textMaxChars: 400000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,

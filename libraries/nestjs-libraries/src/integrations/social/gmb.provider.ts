@@ -604,6 +604,7 @@ export class GmbProvider extends SocialAbstract implements SocialProvider {
       identifier: 'gmb',
       textMaxChars: 1500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,

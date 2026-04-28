@@ -204,6 +204,7 @@ export class DribbbleProvider extends SocialAbstract implements SocialProvider {
       identifier: 'dribbble',
       textMaxChars: 40000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['image', 'video'],
       maxImages: 1,
       maxImageBytes: null,
@@ -213,7 +214,7 @@ export class DribbbleProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'plain',
-      notes: 'Shots only',
+      notes: 'Shots only; shot title — no Postiz-side limit enforced',
     };
   }
 }

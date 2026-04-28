@@ -340,6 +340,7 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
       identifier: 'telegram',
       textMaxChars: 4096,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
       maxImages: 10,
       maxImageBytes: null,

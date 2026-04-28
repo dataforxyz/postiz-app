@@ -375,6 +375,7 @@ export class DiscordProvider extends SocialAbstract implements SocialProvider {
       identifier: 'discord',
       textMaxChars: 1980,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif'],
       maxImages: null,
       maxImageBytes: null,

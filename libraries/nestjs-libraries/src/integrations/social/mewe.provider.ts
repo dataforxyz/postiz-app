@@ -299,6 +299,7 @@ export class MeweProvider extends SocialAbstract implements SocialProvider {
       identifier: 'mewe',
       textMaxChars: 63206,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: null,
       maxImageBytes: null,

@@ -255,6 +255,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
       identifier: 'mastodon',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif'],
       maxImages: null,
       maxImageBytes: null,

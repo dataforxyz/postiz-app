@@ -440,6 +440,7 @@ export class PinterestProvider
       identifier: 'pinterest',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: 100,
       mediaKinds: ['image', 'video'],
       maxImages: null,
       maxImageBytes: null,

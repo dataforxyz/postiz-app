@@ -820,6 +820,7 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       identifier: 'linkedin',
       textMaxChars: 3000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'carousel', 'document_pdf'],
       maxImages: null,
       maxImageBytes: null,

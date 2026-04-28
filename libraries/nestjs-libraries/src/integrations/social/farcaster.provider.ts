@@ -188,6 +188,7 @@ export class FarcasterProvider
       identifier: 'wrapcast',
       textMaxChars: 800,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image'],
       maxImages: null,
       maxImageBytes: null,

@@ -730,6 +730,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
       identifier: 'x',
       textMaxChars: 200,
       textMaxCharsPremium: 4000,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
       maxImages: 4,
       maxImageBytes: null,

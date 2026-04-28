@@ -27,6 +27,18 @@ export interface IntegrationCapabilities {
   identifier: string;
   textMaxChars: number | null;
   textMaxCharsPremium: number | null;
+  /**
+   * Max length of a separate title/subject field (YouTube video title,
+   * Pinterest pin title, Reddit submission title, blog post title,
+   * Listmonk email subject, ...). `null` when the body and title are the
+   * same field — i.e. the provider has no independent title slot.
+   *
+   * Reflects what *Postiz* enforces today (DTO @MaxLength). When Postiz
+   * doesn't enforce a length but the platform does, this stays `null`
+   * and the caller must rely on `notes` for guidance — we don't invent
+   * values.
+   */
+  titleMaxChars: number | null;
   mediaKinds: IntegrationMediaKind[];
   maxImages: number | null;
   maxImageBytes: number | null;

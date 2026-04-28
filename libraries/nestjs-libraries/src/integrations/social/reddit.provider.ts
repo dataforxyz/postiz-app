@@ -490,6 +490,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
       identifier: 'reddit',
       textMaxChars: 10000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: 1,
       maxImageBytes: null,
@@ -499,7 +500,7 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: ['requires_subreddit'],
       textFormat: 'plain',
-      notes: 'Per-subreddit flair; multi-subreddit cross-post',
+      notes: 'Per-subreddit flair; multi-subreddit cross-post; submission title has no Postiz-side limit (Reddit platform limit is 300 chars)',
     };
   }
 }

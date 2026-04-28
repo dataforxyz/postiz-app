@@ -234,6 +234,7 @@ export class HashnodeProvider extends SocialAbstract implements SocialProvider {
       identifier: 'hashnode',
       textMaxChars: 10000,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'gif'],
       maxImages: null,
       maxImageBytes: null,
@@ -243,7 +244,7 @@ export class HashnodeProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: '',
+      notes: 'Blog post title — Postiz enforces MinLength 6, no max enforced',
     };
   }
 }

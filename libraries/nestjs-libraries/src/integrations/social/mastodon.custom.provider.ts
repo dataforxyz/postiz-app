@@ -107,6 +107,7 @@ export class MastodonCustomProvider extends MastodonProvider {
       identifier: 'mastodon-custom',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif'],
       maxImages: null,
       maxImageBytes: null,

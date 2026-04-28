@@ -18,6 +18,7 @@ jest.mock(
           identifier: id,
           textMaxChars: null,
           textMaxCharsPremium: null,
+          titleMaxChars: null,
           mediaKinds: [],
           maxImages: null,
           maxImageBytes: null,
@@ -46,6 +47,11 @@ jest.mock(
           textMaxChars: 200,
           textMaxCharsPremium: 4000,
           mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
+        });
+      }
+      if (id === 'youtube') {
+        return make(id, {
+          titleMaxChars: 100,
         });
       }
       return make(id);
@@ -428,6 +434,7 @@ describe('AdminController', () => {
       'identifier',
       'textMaxChars',
       'textMaxCharsPremium',
+      'titleMaxChars',
       'mediaKinds',
       'maxImages',
       'maxImageBytes',
@@ -492,6 +499,27 @@ describe('AdminController', () => {
       expect(cap.identifier).toBe('x');
       expect(cap.textMaxChars).toBe(200);
       expect(cap.textMaxCharsPremium).toBe(4000);
+    });
+
+    it('exposes titleMaxChars on every provider (even when null)', () => {
+      const result = controller.capabilities();
+      for (const cap of Object.values(result)) {
+        expect(cap).toHaveProperty('titleMaxChars');
+        expect(
+          cap.titleMaxChars === null || typeof cap.titleMaxChars === 'number'
+        ).toBe(true);
+      }
+    });
+
+    it('youtube exposes a numeric titleMaxChars (separate title field)', () => {
+      const cap = controller.capability('youtube');
+      expect(typeof cap.titleMaxChars).toBe('number');
+      expect(cap.titleMaxChars).toBeGreaterThan(0);
+    });
+
+    it('x has titleMaxChars null (body and title share one field)', () => {
+      const cap = controller.capability('x');
+      expect(cap.titleMaxChars).toBeNull();
     });
 
     it('GET single capability with unknown id throws 404', () => {

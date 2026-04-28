@@ -871,6 +871,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       identifier: 'tiktok',
       textMaxChars: 2000,
       textMaxCharsPremium: null,
+      titleMaxChars: 90,
       mediaKinds: ['text', 'image', 'video', 'photo_carousel'],
       maxImages: null,
       maxImageBytes: null,

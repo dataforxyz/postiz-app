@@ -624,6 +624,7 @@ export class ThreadsProvider extends SocialAbstract implements SocialProvider {
       identifier: 'threads',
       textMaxChars: 500,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'carousel'],
       maxImages: null,
       maxImageBytes: null,

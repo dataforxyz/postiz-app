@@ -579,6 +579,7 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
       identifier: 'bluesky',
       textMaxChars: 300,
       textMaxCharsPremium: null,
+      titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video'],
       maxImages: 4,
       maxImageBytes: 999424,
