@@ -71,6 +71,7 @@ __pycache__/
 # Auto-integrator runtime artifacts (tracked log was a porting mistake)
 logs/auto_integrate_dev_prs.log
 logs/integrator_cache/
+logs/integrator_merges.log
 
 # Local env backups + supervisor state
 .env.pre-secret-fix-*.bak
