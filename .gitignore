@@ -67,3 +67,12 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+
+# Auto-integrator runtime artifacts (tracked log was a porting mistake)
+logs/auto_integrate_dev_prs.log
+logs/integrator_cache/
+
+# Local env backups + supervisor state
+.env.pre-secret-fix-*.bak
+.postiz.backend.log
+.postiz.backend.pid
