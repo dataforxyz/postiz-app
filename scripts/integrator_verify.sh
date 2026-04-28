@@ -2,24 +2,16 @@
 # integrator_verify.sh — pnpm verify pipeline for the postiz-app auto-integrator.
 #
 # Called by auto_integrate_dev_prs.py with the scratch worktree directory as
-# the first argument (required). The permanent repo root (where node_modules
-# lives) is inferred as the parent of this script's own directory.
-#
-# Strategy for scratch worktrees in /tmp:
-#   The scratch git worktree does not have node_modules. Rather than running
-#   a full pnpm install (slow, may hit approve-builds gate), we symlink
-#   node_modules from the permanent worktree so installed packages are reused.
-#   A minimal `pnpm install --frozen-lockfile --ignore-scripts` is still run
-#   to ensure the lockfile hasn't drifted (postinstall/prisma-generate is
-#   skipped with --ignore-scripts since the permanent root already ran it).
+# the first argument (required).
 #
 # Steps (in order, fail-fast):
-#   1. Symlink node_modules from permanent repo root into scratch worktree.
-#   2. pnpm install --frozen-lockfile --ignore-scripts  (sync deps, skip scripts)
+#   1. pnpm install --frozen-lockfile --ignore-scripts  (19s; uses shared store;
+#      bypasses approve-builds gate by skipping lifecycle scripts)
+#   2. pnpm run prisma-generate  (3s; Prisma client must be generated for tsc)
 #   3. typecheck: skipped (no typecheck script in any workspace package)
 #   4. lint: skipped (no root lint script in postiz-app)
 #   5. test: skipped (Jest requires a running DB; gate runs in Forgejo CI)
-#   6. pnpm build  — full monorepo build (mirrors the Docker Build CI gate)
+#   6. pnpm build  (~3 min; full monorepo build, same as Docker Build CI gate)
 #
 # Exit 0 on full pipeline green; non-zero on first failure.
 # Timing for each step is printed to stdout as "step=<name> duration_s=<n>".
@@ -28,10 +20,6 @@ set -euo pipefail
 
 SCRATCH_DIR="${1:?Usage: integrator_verify.sh <scratch-worktree-dir>}"
 cd "$SCRATCH_DIR"
-
-# The permanent repo root is the parent of the scripts/ directory.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PERMANENT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -54,45 +42,40 @@ run_step() {
   fi
 }
 
-# ── 1. symlink node_modules from permanent root ───────────────────────────────
-echo "[verify] symlinking node_modules from ${PERMANENT_ROOT}"
-if [ ! -e "${SCRATCH_DIR}/node_modules" ]; then
-  ln -s "${PERMANENT_ROOT}/node_modules" "${SCRATCH_DIR}/node_modules"
-fi
+# ── 1. pnpm install ───────────────────────────────────────────────────────────
+# Use --ignore-scripts to bypass the approve-builds interactive gate (esbuild,
+# prisma, sharp, etc.) which requires terminal interaction.  All packages come
+# from the shared pnpm store — no downloads needed (~20 s).
+# postinstall (prisma-generate) is handled separately in step 2.
+PNPM_STORE_DIR="${PNPM_STORE_DIR:-$(pnpm store path 2>/dev/null || echo /home/dev/.local/share/pnpm/store/v10)}"
+run_step "install" pnpm install \
+  --frozen-lockfile \
+  --ignore-scripts \
+  --store-dir "${PNPM_STORE_DIR}"
 
-# Symlink per-app node_modules if they exist in the permanent root
-for app_dir in apps/backend apps/frontend apps/orchestrator apps/extension apps/sdk apps/commands; do
-  if [ -d "${PERMANENT_ROOT}/${app_dir}/node_modules" ] && [ ! -e "${SCRATCH_DIR}/${app_dir}/node_modules" ]; then
-    ln -s "${PERMANENT_ROOT}/${app_dir}/node_modules" "${SCRATCH_DIR}/${app_dir}/node_modules"
-  fi
-done
-
-# Symlink library node_modules
-for lib_dir in "${PERMANENT_ROOT}"/libraries/*/; do
-  lib_name="$(basename "$lib_dir")"
-  if [ -d "${lib_dir}/node_modules" ] && [ -d "${SCRATCH_DIR}/libraries/${lib_name}" ] && [ ! -e "${SCRATCH_DIR}/libraries/${lib_name}/node_modules" ]; then
-    ln -s "${lib_dir}/node_modules" "${SCRATCH_DIR}/libraries/${lib_name}/node_modules"
-  fi
-done
-
-# ── 2. pnpm install (sync lockfile, skip scripts to avoid approve-builds gate) ─
-run_step "install" pnpm install --frozen-lockfile --ignore-scripts
+# ── 2. prisma-generate ───────────────────────────────────────────────────────
+# The postinstall script that --ignore-scripts skipped above. Prisma must
+# generate its TypeScript client for type-checking and compilation to work.
+run_step "prisma-generate" pnpm run prisma-generate
 
 # ── 3. typecheck ─────────────────────────────────────────────────────────────
-# postiz-app workspaces do not define a typecheck script.
-echo "[verify] step=typecheck: no typecheck script in any workspace package; skipping"
+# postiz-app workspaces do not define a standalone typecheck script; tsc is
+# invoked implicitly by nest build / next build in the build step.
+echo "[verify] step=typecheck: no standalone typecheck script; covered by build step"
 
 # ── 4. lint ───────────────────────────────────────────────────────────────────
-# postiz-app has no root lint script (linting is per-app via next lint / tsc).
+# postiz-app has no root lint script.
 echo "[verify] step=lint: no root lint script; skipping"
 
 # ── 5. test ───────────────────────────────────────────────────────────────────
-# pnpm test runs Jest which requires a running database (Prisma). Skipping
-# here; the test gate lives in Forgejo CI (runs with a real DB in Docker).
+# pnpm test runs Jest which requires a running database (Prisma). Skipping;
+# the test gate lives in Forgejo CI (runs with a real DB in Docker).
 echo "[verify] step=test: skipped (Jest requires DB; gate runs in Forgejo CI)"
 
 # ── 6. build ─────────────────────────────────────────────────────────────────
-# This is the primary gate — same as the Docker Build CI workflow.
+# Full monorepo build — mirrors the Docker Build CI gate (frontend + backend +
+# orchestrator). NestJS compilation catches TypeScript errors not covered by
+# other steps.
 run_step "build" pnpm build
 
 echo "[verify] all steps passed"
