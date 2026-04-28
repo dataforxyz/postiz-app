@@ -72,6 +72,8 @@ __pycache__/
 logs/auto_integrate_dev_prs.log
 logs/integrator_cache/
 logs/integrator_merges.log
+logs/reload_on_merge.log
+runtime/
 
 # Local env backups + supervisor state
 .env.pre-secret-fix-*.bak
