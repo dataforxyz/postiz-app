@@ -33,6 +33,29 @@ MERGE_SHA=$(cat "$FLAG" 2>/dev/null | tr -d '[:space:]') || true
 
 echo "[reload-on-merge] $(date -u -Iseconds) restart triggered by $FLAG (merge_sha=${MERGE_SHA:-<empty>})"
 
+# ── Fast-forward main checkout to the merged tip ───────────────────────────────
+# The auto-integrator merges via the Forgejo API in a scratch worktree, so the
+# main checkout does not advance on merge. Without this fetch+ff the rebuild
+# below compiles the *previous* HEAD and the merged feature never deploys
+# (observed during PRs #9 and #16). Treat fetch/ff failures as fatal — leave
+# the flag in place so the next cron tick retries.
+echo "[reload-on-merge] $(date -u -Iseconds) fetching origin and fast-forwarding $PREVIEW_BRANCH"
+if ! git -C "$REPO_DIR" fetch origin --quiet; then
+    echo "[reload-on-merge] $(date -u -Iseconds) git fetch FAILED; leaving flag for retry" >&2
+    exit 1
+fi
+PRE_FF_SHA=$(git -C "$REPO_DIR" rev-parse HEAD)
+if ! git -C "$REPO_DIR" merge --ff-only "origin/$PREVIEW_BRANCH" --quiet; then
+    echo "[reload-on-merge] $(date -u -Iseconds) git merge --ff-only FAILED (local diverged from origin/$PREVIEW_BRANCH); leaving flag for retry" >&2
+    exit 1
+fi
+POST_FF_SHA=$(git -C "$REPO_DIR" rev-parse HEAD)
+if [[ "$PRE_FF_SHA" == "$POST_FF_SHA" ]]; then
+    echo "[reload-on-merge] $(date -u -Iseconds) checkout already at $POST_FF_SHA — rebuilding anyway in case merge_sha matches stale dist"
+else
+    echo "[reload-on-merge] $(date -u -Iseconds) advanced ${PRE_FF_SHA:0:12} → ${POST_FF_SHA:0:12}"
+fi
+
 # ── Token for Forgejo API ──────────────────────────────────────────────────────
 FGIT_TOKEN=""
 FGIT_TOKEN=$(git -C "$REPO_DIR" remote get-url origin \
