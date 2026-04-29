@@ -194,6 +194,74 @@ export class AdminController {
     return result;
   }
 
+  @Delete('/orgs/:orgId/users/:userId')
+  @HttpCode(204)
+  async removeUserFromOrg(
+    @Param('orgId') orgId: string,
+    @Param('userId') userId: string
+  ) {
+    const existing = await this._orgService.getOrgById(orgId);
+    if (!existing) throw new NotFoundException('Organization not found');
+
+    try {
+      await this._orgService.adminRemoveUserFromOrg(orgId, userId);
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        throw new NotFoundException('User is not a member of this organization');
+      }
+      throw err;
+    }
+    return;
+  }
+
+  @Patch('/users/:userId')
+  async updateUser(
+    @Param('userId') userId: string,
+    @Body()
+    body: {
+      email?: string;
+      role?: string;
+      orgId?: string;
+    }
+  ) {
+    const email =
+      body.email !== undefined
+        ? body.email.trim().toLowerCase()
+        : undefined;
+    const role = body.role;
+
+    if (email === undefined && role === undefined) {
+      throw new BadRequestException('at least one of email or role is required');
+    }
+
+    if (role !== undefined && role !== 'USER' && role !== 'ADMIN') {
+      throw new BadRequestException('role must be USER or ADMIN');
+    }
+
+    try {
+      const result = await this._orgService.adminUpdateUser(
+        userId,
+        { email, role },
+        body.orgId
+      );
+      if (!result) throw new NotFoundException('User not found');
+      return result;
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        throw new NotFoundException('User or membership not found');
+      }
+      throw err;
+    }
+  }
+
+  @Get('/orgs/:orgId/users')
+  async listOrgUsers(@Param('orgId') orgId: string) {
+    const existing = await this._orgService.getOrgById(orgId);
+    if (!existing) throw new NotFoundException('Organization not found');
+
+    return this._orgService.adminListOrgUsers(orgId);
+  }
+
   @Post('/orgs/:id/api-tokens')
   async mintApiToken(
     @Param('id') orgId: string,

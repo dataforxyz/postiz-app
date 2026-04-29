@@ -170,4 +170,28 @@ export class OrganizationService {
     );
     return { userId: user.id, membershipId: membership.id };
   }
+
+  adminRemoveUserFromOrg(orgId: string, userId: string) {
+    return this._organizationRepository.adminRemoveUserFromOrg(orgId, userId);
+  }
+
+  adminUpdateUser(
+    userId: string,
+    updates: { email?: string; role?: string },
+    orgId?: string
+  ) {
+    const roleVal =
+      updates.role !== undefined
+        ? (updates.role as import('@prisma/client').Role)
+        : undefined;
+    return this._organizationRepository.adminUpdateUser(
+      userId,
+      { email: updates.email, role: roleVal },
+      orgId
+    );
+  }
+
+  adminListOrgUsers(orgId: string) {
+    return this._organizationRepository.adminListOrgUsers(orgId);
+  }
 }
