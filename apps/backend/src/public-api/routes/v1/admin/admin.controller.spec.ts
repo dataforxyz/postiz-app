@@ -85,6 +85,9 @@ describe('AdminController', () => {
     adminDeleteOrg: jest.fn(),
     adminUpdateOrg: jest.fn(),
     adminAddUserToOrg: jest.fn(),
+    adminRemoveUserFromOrg: jest.fn(),
+    adminUpdateUser: jest.fn(),
+    adminListOrgUsers: jest.fn(),
     getOrgById: jest.fn(),
   };
   const apiTokenService = {
@@ -559,6 +562,179 @@ describe('AdminController', () => {
         (cap) => cap.allowedExtensions.length > 0
       );
       expect(hasNonEmpty).toBe(true);
+    });
+  });
+
+  // ── removeUserFromOrg ────────────────────────────────────────────────
+
+  describe('removeUserFromOrg', () => {
+    it('happy path removes member and returns 204 (undefined)', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      orgService.adminRemoveUserFromOrg.mockResolvedValue({ id: 'mem-1' });
+
+      const result = await controller.removeUserFromOrg('org-1', 'user-1');
+      expect(result).toBeUndefined();
+      expect(orgService.adminRemoveUserFromOrg).toHaveBeenCalledWith(
+        'org-1',
+        'user-1'
+      );
+    });
+
+    it('404 when org does not exist', async () => {
+      orgService.getOrgById.mockResolvedValue(null);
+      await expect(
+        controller.removeUserFromOrg('nope', 'user-1')
+      ).rejects.toThrow(NotFoundException);
+      expect(orgService.adminRemoveUserFromOrg).not.toHaveBeenCalled();
+    });
+
+    it('404 when user is not a member (Prisma P2025)', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      const err: any = new Error('not found');
+      err.code = 'P2025';
+      orgService.adminRemoveUserFromOrg.mockRejectedValue(err);
+
+      await expect(
+        controller.removeUserFromOrg('org-1', 'unknown-user')
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('rethrows unexpected errors', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      orgService.adminRemoveUserFromOrg.mockRejectedValue(new Error('db down'));
+      await expect(
+        controller.removeUserFromOrg('org-1', 'user-1')
+      ).rejects.toThrow('db down');
+    });
+  });
+
+  // ── updateUser ───────────────────────────────────────────────────────
+
+  describe('updateUser', () => {
+    const userFixture: {
+      id: string;
+      email: string;
+      name: string;
+      createdAt: Date;
+      organizations: Array<{ role: string; organizationId: string; createdAt: Date }>;
+    } = {
+      id: 'user-1',
+      email: 'new@example.test',
+      name: 'Test',
+      createdAt: new Date('2026-04-01'),
+      organizations: [],
+    };
+
+    it('happy path with email only', async () => {
+      orgService.adminUpdateUser.mockResolvedValue(userFixture);
+      const result = await controller.updateUser('user-1', {
+        email: 'New@Example.Test',
+      });
+      expect(result).toEqual(userFixture);
+      expect(orgService.adminUpdateUser).toHaveBeenCalledWith(
+        'user-1',
+        { email: 'new@example.test', role: undefined },
+        undefined
+      );
+    });
+
+    it('happy path with role only', async () => {
+      orgService.adminUpdateUser.mockResolvedValue(userFixture);
+      await controller.updateUser('user-1', { role: 'ADMIN', orgId: 'org-1' });
+      expect(orgService.adminUpdateUser).toHaveBeenCalledWith(
+        'user-1',
+        { email: undefined, role: 'ADMIN' },
+        'org-1'
+      );
+    });
+
+    it('happy path with both email and role', async () => {
+      orgService.adminUpdateUser.mockResolvedValue(userFixture);
+      await controller.updateUser('user-1', {
+        email: 'x@x.test',
+        role: 'USER',
+        orgId: 'org-2',
+      });
+      expect(orgService.adminUpdateUser).toHaveBeenCalledWith(
+        'user-1',
+        { email: 'x@x.test', role: 'USER' },
+        'org-2'
+      );
+    });
+
+    it('400 when body is empty (no email or role)', async () => {
+      await expect(
+        controller.updateUser('user-1', {} as any)
+      ).rejects.toThrow(BadRequestException);
+      expect(orgService.adminUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it('400 for invalid role value', async () => {
+      await expect(
+        controller.updateUser('user-1', { role: 'SUPERADMIN' })
+      ).rejects.toThrow(BadRequestException);
+      expect(orgService.adminUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it('404 when service returns null (user not found)', async () => {
+      orgService.adminUpdateUser.mockResolvedValue(null);
+      await expect(
+        controller.updateUser('nope', { email: 'x@x.test' })
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('404 when Prisma P2025 (membership not found for role update)', async () => {
+      const err: any = new Error('not found');
+      err.code = 'P2025';
+      orgService.adminUpdateUser.mockRejectedValue(err);
+      await expect(
+        controller.updateUser('user-1', { role: 'ADMIN', orgId: 'org-1' })
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // ── listOrgUsers ─────────────────────────────────────────────────────
+
+  describe('listOrgUsers', () => {
+    const usersFixture = [
+      { id: 'u1', email: 'alice@example.test', role: 'SUPERADMIN', addedAt: new Date('2026-01-01') },
+      { id: 'u2', email: 'bob@example.test', role: 'USER', addedAt: new Date('2026-02-01') },
+    ];
+
+    it('happy path returns array of members', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      orgService.adminListOrgUsers.mockResolvedValue(usersFixture);
+
+      const result = await controller.listOrgUsers('org-1');
+      expect(result).toEqual(usersFixture);
+      expect(orgService.adminListOrgUsers).toHaveBeenCalledWith('org-1');
+    });
+
+    it('returns empty array for org with no members', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      orgService.adminListOrgUsers.mockResolvedValue([]);
+      const result = await controller.listOrgUsers('org-1');
+      expect(result).toEqual([]);
+    });
+
+    it('response shape has id, email, role, addedAt', async () => {
+      orgService.getOrgById.mockResolvedValue({ id: 'org-1' });
+      orgService.adminListOrgUsers.mockResolvedValue(usersFixture);
+      const result = await controller.listOrgUsers('org-1');
+      for (const u of result) {
+        expect(u).toHaveProperty('id');
+        expect(u).toHaveProperty('email');
+        expect(u).toHaveProperty('role');
+        expect(u).toHaveProperty('addedAt');
+      }
+    });
+
+    it('404 when org does not exist', async () => {
+      orgService.getOrgById.mockResolvedValue(null);
+      await expect(controller.listOrgUsers('nope')).rejects.toThrow(
+        NotFoundException
+      );
+      expect(orgService.adminListOrgUsers).not.toHaveBeenCalled();
     });
   });
 });

@@ -560,4 +560,78 @@ export class OrganizationRepository {
       },
     });
   }
+
+  async adminRemoveUserFromOrg(orgId: string, userId: string) {
+    // Returns the deleted membership or throws Prisma P2025 if not found.
+    return this._userOrg.model.userOrganization.delete({
+      where: {
+        userId_organizationId: {
+          userId,
+          organizationId: orgId,
+        },
+      },
+    });
+  }
+
+  async adminUpdateUser(
+    userId: string,
+    updates: { email?: string; role?: Role },
+    orgId?: string
+  ) {
+    // Update the User table fields (email).
+    if (updates.email !== undefined) {
+      await this._user.model.user.update({
+        where: { id: userId },
+        data: { email: updates.email },
+      });
+    }
+    // Update role in the membership row (scoped to orgId if provided).
+    if (updates.role !== undefined && orgId) {
+      await this._userOrg.model.userOrganization.update({
+        where: {
+          userId_organizationId: { userId, organizationId: orgId },
+        },
+        data: { role: updates.role },
+      });
+    }
+    return this._user.model.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        organizations: {
+          select: {
+            role: true,
+            organizationId: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+  }
+
+  async adminListOrgUsers(orgId: string) {
+    const memberships = await this._userOrg.model.userOrganization.findMany({
+      where: { organizationId: orgId },
+      select: {
+        role: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return memberships.map((m) => ({
+      id: m.user.id,
+      email: m.user.email,
+      role: m.role as string,
+      addedAt: m.createdAt,
+    }));
+  }
 }
