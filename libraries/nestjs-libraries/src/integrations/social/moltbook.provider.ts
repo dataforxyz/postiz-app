@@ -206,10 +206,10 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: '',
+      notes: 'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

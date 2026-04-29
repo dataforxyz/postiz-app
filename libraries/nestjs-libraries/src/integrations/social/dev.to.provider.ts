@@ -199,10 +199,10 @@ export class DevToProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'markdown',
-      notes: 'Postiz identifier is devto, not dev-to; blog post title — no Postiz-side limit enforced',
+      notes: 'Postiz identifier is devto, not dev-to; blog post title — no Postiz-side limit enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

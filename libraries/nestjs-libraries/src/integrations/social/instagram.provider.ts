@@ -934,10 +934,10 @@ export class InstagramProvider
       maxVideoSeconds: 90,
       maxVideoSecondsDynamic: false,
       aspectRatios: ['4:5', '1.91:1'],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['requires_business_account', 'supports_collaborators'],
       textFormat: 'plain',
-      notes: 'Stories do not support carousels; Reels max 90s; Stories max 60s',
+      notes: 'Stories do not support carousels; Reels max 90s; Stories max 60s; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

@@ -305,7 +305,7 @@ export class TwitchProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'plain',
-      notes: 'Twitch chat message only; stream metadata via separate flow',
+      notes: 'Twitch chat message only; stream metadata via separate flow; text-only — Postiz does not gate by extension',
     };
   }
 }

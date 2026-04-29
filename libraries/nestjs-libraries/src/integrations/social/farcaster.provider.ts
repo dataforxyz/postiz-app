@@ -195,10 +195,10 @@ export class FarcasterProvider
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: 'Identifier in Postiz source is wrapcast, not farcaster',
+      notes: 'Identifier in Postiz source is wrapcast, not farcaster; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

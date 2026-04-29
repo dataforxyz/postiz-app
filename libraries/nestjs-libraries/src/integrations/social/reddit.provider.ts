@@ -497,10 +497,10 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['requires_subreddit'],
       textFormat: 'plain',
-      notes: 'Per-subreddit flair; multi-subreddit cross-post; submission title has no Postiz-side limit (Reddit platform limit is 300 chars)',
+      notes: 'Per-subreddit flair; multi-subreddit cross-post; submission title has no Postiz-side limit (Reddit platform limit is 300 chars); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

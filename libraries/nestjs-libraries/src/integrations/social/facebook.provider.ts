@@ -655,10 +655,10 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: 'Videos posted to /videos return facebook.com/reel/ URLs',
+      notes: 'Videos posted to /videos return facebook.com/reel/ URLs; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

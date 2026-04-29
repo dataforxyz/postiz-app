@@ -737,10 +737,10 @@ export class XProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: 120,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['supports_threads', 'supports_reply_restriction'],
       textFormat: 'plain',
-      notes: 'Postiz hard-codes 200/4000, not X native 280/25000',
+      notes: 'Postiz hard-codes 200/4000, not X native 280/25000; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

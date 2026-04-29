@@ -114,10 +114,10 @@ export class MastodonCustomProvider extends MastodonProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['instance_specific'],
       textFormat: 'plain',
-      notes: 'Same as mastodon, custom instance URL',
+      notes: 'Same as mastodon, custom instance URL; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

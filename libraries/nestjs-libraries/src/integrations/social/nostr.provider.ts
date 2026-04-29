@@ -247,10 +247,10 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: 'Source maxLength reports 100000 (effectively unlimited)',
+      notes: 'Source maxLength reports 100000 (effectively unlimited); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

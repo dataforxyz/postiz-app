@@ -878,10 +878,10 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: true,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: 'max_video_post_duration_sec fetched per creator from TikTok creator-info; PHOTO mode supports photo_images carousel',
+      notes: 'max_video_post_duration_sec fetched per creator from TikTok creator-info; PHOTO mode supports photo_images carousel; .mp4 routes to video upload, others to PHOTO content (tiktok.provider.ts:461,511,549); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

@@ -447,10 +447,10 @@ export class PinterestProvider
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['requires_cover_image', 'requires_board'],
       textFormat: 'plain',
-      notes: 'Video pins require a separate cover image',
+      notes: 'Video pins require a separate cover image; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

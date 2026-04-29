@@ -288,10 +288,10 @@ export class ListmonkProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'html',
-      notes: 'Email newsletter; effectively unlimited body length; subject acts as title — no Postiz-side limit enforced',
+      notes: 'Email newsletter; effectively unlimited body length; subject acts as title — no Postiz-side limit enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

@@ -241,10 +241,10 @@ export class HashnodeProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'markdown',
-      notes: 'Blog post title — Postiz enforces MinLength 6, no max enforced',
+      notes: 'Blog post title — Postiz enforces MinLength 6, no max enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

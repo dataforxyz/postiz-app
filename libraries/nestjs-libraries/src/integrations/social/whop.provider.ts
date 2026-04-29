@@ -389,7 +389,7 @@ export class WhopProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: [],
       flags: [],
       textFormat: 'markdown',
-      notes: 'Optional forum-post title — no Postiz-side limit enforced',
+      notes: 'Optional forum-post title — no Postiz-side limit enforced; text-only — Postiz does not gate by extension',
     };
   }
 }

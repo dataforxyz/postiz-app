@@ -305,10 +305,10 @@ export class LemmyProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'markdown',
-      notes: 'Post title has no Postiz-side limit (Lemmy platform limit is 200 chars)',
+      notes: 'Post title has no Postiz-side limit (Lemmy platform limit is 200 chars); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

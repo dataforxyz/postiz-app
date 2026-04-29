@@ -222,10 +222,10 @@ export class InstagramStandaloneProvider
       maxVideoSeconds: 90,
       maxVideoSecondsDynamic: false,
       aspectRatios: ['4:5', '1.91:1'],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['requires_business_account', 'supports_collaborators'],
       textFormat: 'plain',
-      notes: 'Same as instagram, alt OAuth flow',
+      notes: 'Same as instagram, alt OAuth flow; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

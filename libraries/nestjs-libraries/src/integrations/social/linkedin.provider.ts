@@ -827,10 +827,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: 600,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['supports_pdf_carousel_synthesis'],
       textFormat: 'plain',
-      notes: 'post_as_images_carousel synthesizes PDF from images; native PDF supported via isPdf branch',
+      notes: 'post_as_images_carousel synthesizes PDF from images; native PDF supported via isPdf branch; .mp4 routes to /videos endpoint, others to /images (linkedin.provider.ts:238-247); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

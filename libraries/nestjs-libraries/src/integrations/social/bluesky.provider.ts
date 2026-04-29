@@ -586,10 +586,10 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['mutually_exclusive_image_video', 'auto_resize_images'],
       textFormat: 'plain',
-      notes: 'Image auto-resized via sharp; image and video are mutually exclusive in one post',
+      notes: 'Image auto-resized via sharp; image and video are mutually exclusive in one post; video upload hardcodes Content-Type: video/mp4 (bluesky.provider.ts:102); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

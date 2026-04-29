@@ -47,14 +47,22 @@ jest.mock(
           textMaxChars: 200,
           textMaxCharsPremium: 4000,
           mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
+          allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
         });
       }
       if (id === 'youtube') {
         return make(id, {
           titleMaxChars: 100,
+          allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
         });
       }
-      return make(id);
+      // text-only providers — Postiz does not gate by extension
+      if (id === 'twitch' || id === 'whop') {
+        return make(id);
+      }
+      return make(id, {
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      });
     });
     return {
       socialIntegrationList: list,
@@ -530,6 +538,27 @@ describe('AdminController', () => {
 
     it('socialIntegrationList is non-empty (sanity)', () => {
       expect(socialIntegrationList.length).toBeGreaterThanOrEqual(30);
+    });
+
+    it('exposes allowedExtensions as a string array on every provider', () => {
+      const result = controller.capabilities();
+      for (const cap of Object.values(result)) {
+        expect(cap).toHaveProperty('allowedExtensions');
+        expect(cap.allowedExtensions).not.toBeNull();
+        expect(cap.allowedExtensions).not.toBeUndefined();
+        expect(Array.isArray(cap.allowedExtensions)).toBe(true);
+        for (const ext of cap.allowedExtensions) {
+          expect(typeof ext).toBe('string');
+        }
+      }
+    });
+
+    it('at least one provider has a non-empty allowedExtensions', () => {
+      const result = controller.capabilities();
+      const hasNonEmpty = Object.values(result).some(
+        (cap) => cap.allowedExtensions.length > 0
+      );
+      expect(hasNonEmpty).toBe(true);
     });
   });
 });

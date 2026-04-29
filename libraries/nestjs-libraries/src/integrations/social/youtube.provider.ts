@@ -530,10 +530,10 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
       maxVideoSeconds: null,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['requires_title'],
       textFormat: 'plain',
-      notes: 'Postiz does not distinguish Shorts vs long-form; YouTube auto-classifies',
+      notes: 'Postiz does not distinguish Shorts vs long-form; YouTube auto-classifies; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

@@ -700,10 +700,10 @@ export class LinkedinPageProvider
       maxVideoSeconds: 600,
       maxVideoSecondsDynamic: false,
       aspectRatios: [],
-      allowedExtensions: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['supports_pdf_carousel_synthesis'],
       textFormat: 'plain',
-      notes: 'Same as linkedin profile plus paid_partnership flag',
+      notes: 'Same as linkedin profile plus paid_partnership flag; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }
