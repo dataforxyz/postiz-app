@@ -373,13 +373,20 @@ def list_open_prs(host: str, token: str, repo: str, base: str) -> list[PullReque
     for raw in data or []:
         if not isinstance(raw, dict) or raw.get("draft"):
             continue
+        # Defensive: Forgejo's ?base= filter is sometimes ignored and returns
+        # PRs targeting other branches (e.g. release-rc→main leaking into a
+        # dev/all-open-prs-preview query). Re-check client-side so the
+        # integrator never processes a PR aimed at the wrong base.
+        actual_base = str((raw.get("base") or {}).get("ref") or "")
+        if actual_base != base:
+            continue
         pulls.append(
             PullRequest(
                 number=int(raw["number"]),
                 title=str(raw.get("title") or ""),
                 head_ref=str((raw.get("head") or {}).get("ref") or ""),
                 head_sha=str((raw.get("head") or {}).get("sha") or ""),
-                base_ref=str((raw.get("base") or {}).get("ref") or ""),
+                base_ref=actual_base,
                 html_url=str(raw.get("html_url") or ""),
                 draft=False,
             )
