@@ -769,6 +769,65 @@ def get_branch_sha(branch: str) -> str:
     return result.stdout.strip()
 
 
+def _ff_or_recover(branch: str) -> None:
+    """Fast-forward local <branch> to origin/<branch>. If the local branch has
+    diverged (committed work that isn't on origin), save those commits to a
+    labeled side branch on origin and hard-reset local. Mirrors the
+    auto-stash pattern in ensure_clean_tree."""
+    fetch_res = run(["git", "fetch", "origin", branch], check=False)
+    if fetch_res.returncode != 0:
+        # Network blip — let the next caller see the failure normally.
+        run(["git", "fetch", "origin", branch])
+        return
+    # Try the fast-forward first.
+    pull = run(["git", "pull", "--ff-only", "origin", branch], check=False)
+    if pull.returncode == 0:
+        return
+    # Diverged — count ahead/behind to decide.
+    counts = run(
+        [
+            "git",
+            "rev-list",
+            "--left-right",
+            "--count",
+            f"HEAD...origin/{branch}",
+        ],
+        check=False,
+    )
+    parts = counts.stdout.strip().split()
+    if len(parts) != 2 or parts[0] == "0":
+        # Behind only or unparseable — re-raise normal pull error.
+        run(["git", "pull", "--ff-only", "origin", branch])
+        return
+    ahead = int(parts[0])
+    label = f"auto-integrator-stranded-{_now_iso().replace(':', '-')}"
+    head = run(["git", "rev-parse", "HEAD"]).stdout.strip()
+    print(
+        f"[auto-recover] local {branch} ahead by {ahead}; "
+        f"saving stranded commits to '{label}' on origin and resetting."
+    )
+    print("  stranded HEAD:", head[:12])
+    # Make a branch pointing at the stranded HEAD, push it to origin so the
+    # commits are recoverable, then hard-reset local to origin.
+    run(["git", "branch", label, head], check=False)
+    push = run(["git", "push", "origin", f"refs/heads/{label}"], check=False)
+    if push.returncode != 0:
+        # Couldn't preserve — bail loudly so user sees the issue rather
+        # than silently losing commits.
+        raise SystemExit(
+            f"error: local {branch} diverged AND we could not push the "
+            f"stranded label '{label}' to origin. Refusing to reset. "
+            f"Manual intervention required.\n" + (push.stderr or "")
+        )
+    # Now safe to hard-reset.
+    run(["git", "reset", "--hard", f"origin/{branch}"])
+    print(
+        f"[auto-recover] local {branch} reset to origin/{branch}; "
+        f"recover the {ahead} stranded commit(s) at "
+        f"`git fetch origin {label}` (also at refs/heads/{label} on the remote)."
+    )
+
+
 def verify_baseline(
     verify_cmd: str, branch: str, timeout: int | None = None, use_cache: bool = True
 ) -> tuple[bool, str]:
@@ -779,7 +838,7 @@ def verify_baseline(
     """
     run(["git", "fetch", "origin", branch])
     run(["git", "checkout", branch])
-    run(["git", "pull", "--ff-only", "origin", branch])
+    _ff_or_recover(branch)
 
     branch_sha = get_branch_sha(branch)
 
