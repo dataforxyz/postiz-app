@@ -143,3 +143,28 @@ This repository's source code is available under the [AGPL-3.0 license](LICENSE)
 <p align="center">
   <a href="https://www.g2.com/products/postiz/take_survey" target="blank"><img alt="g2" src="https://github.com/user-attachments/assets/892cb74c-0b49-4589-b2f5-fbdbf7a98f66" /></a>
 </p>
+
+## Development workflow
+
+Feature work and documentation updates should happen in a dedicated worktree, not the shared checkout.
+
+- Start from the clean integration branch: `dev/all-open-prs-preview`.
+- Create a worktree in `/home/sumwey/worktrees/` with your feature branch, for example:
+
+```bash
+git worktree add /home/sumwey/worktrees/postiz-app-<feature-name> \
+  -b <branch-name> origin/dev/all-open-prs-preview
+```
+
+- Run verification in the worktree, then open PRs with the repo helper:
+
+```bash
+scripts/open_pr.sh \
+  --head <branch-name> \
+  --title "<pr title>" \
+  --body "Closes #<issue>" \
+  --base preview \
+  --skip-verify
+```
+
+See the repository workflow and review docs for the expected open PR process.
