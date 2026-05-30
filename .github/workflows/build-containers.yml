@@ -1,25 +1,61 @@
 ---
-name: "Build Containers"
+name: Publish Image
 
 on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
-  push:
-    tags:
-      - '*'
+    inputs:
+      source_ref:
+        description: "Branch, tag, or full commit SHA to build and publish"
+        required: false
+
+concurrency:
+  group: postiz-app-publish-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
-  build-containers-common:
+  publish-image-common:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     outputs:
-      containerver: ${{ steps.getcontainerver.outputs.containerver }}
+      full_sha: ${{ steps.meta.outputs.full_sha }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+      image: ${{ steps.meta.outputs.image }}
+    env:
+      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
     steps:
-      - name: Get Container Version
-        id: getcontainerver
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_ref || github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve image target
+        id: meta
         run: |
-          echo "containerver=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          image_name="${IMAGE_NAME:-postiz-app}"
+          image_name="${image_name,,}"
+          full_sha="$(git rev-parse HEAD)"
+          short_sha="${full_sha:0:7}"
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${image_name}"
+          {
+            echo "image=${image}"
+            echo "full_sha=${full_sha}"
+            echo "short_sha=${short_sha}"
+          } >> "$GITHUB_OUTPUT"
 
   build-containers:
-    needs: build-containers-common
+    needs: publish-image-common
     strategy:
       matrix:
         include:
@@ -29,75 +65,73 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.runnertags }}
     steps:
-      - name: Checkout
+      - name: Checkout target ref
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.inputs.source_ref || github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to ghcr
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build and Push Image
+      - name: Build and push architecture image
         env:
-          CONTAINERVER: ${{ needs.build-containers-common.outputs.containerver }}
-          NEXT_PUBLIC_VERSION: ${{ github.ref_name }}
+          IMAGE: ${{ needs.publish-image-common.outputs.image }}
+          FULL_SHA: ${{ needs.publish-image-common.outputs.full_sha }}
+          SHORT_SHA: ${{ needs.publish-image-common.outputs.short_sha }}
         run: |
           docker buildx build --platform linux/${{ matrix.arch }} \
             -f Dockerfile.dev \
-            -t ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-${{ matrix.arch }} \
-            --build-arg NEXT_PUBLIC_VERSION=${{ env.NEXT_PUBLIC_VERSION }} \
+            -t "${IMAGE}:sha-${FULL_SHA}-${{ matrix.arch }}" \
+            -t "${IMAGE}:sha-${SHORT_SHA}-${{ matrix.arch }}" \
+            --build-arg NEXT_PUBLIC_VERSION="sha-${SHORT_SHA}" \
             --pull \
-            --no-cache \
             --provenance=false --sbom=false \
-            --output "type=registry,name=ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-${{ matrix.arch }}" .
+            --push \
+            .
 
   build-container-manifest:
-    needs: [build-containers, build-containers-common]
+    needs: [publish-image-common, build-containers]
     runs-on: ubuntu-latest
     steps:
-      - name: Login to ghcr
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Create Docker Manifest
+      - name: Create Docker manifests
         env:
-          CONTAINERVER: ${{ needs.build-containers-common.outputs.containerver }}
+          IMAGE: ${{ needs.publish-image-common.outputs.image }}
+          FULL_SHA: ${{ needs.publish-image-common.outputs.full_sha }}
+          SHORT_SHA: ${{ needs.publish-image-common.outputs.short_sha }}
         run: |
-          # Verify the architecture images
-          echo "Verifying AMD64 image:"
-          docker buildx imagetools inspect ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-amd64
-          
-          echo "Verifying ARM64 image:"
-          docker buildx imagetools inspect ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-arm64
-          
-          # Try to remove any existing manifests first
-          docker manifest rm ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }} || true
-          docker manifest rm ghcr.io/gitroomhq/postiz-app:latest || true
-          
-          # Create and push the version-specific manifest
-          docker manifest create ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }} \
-            --amend ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-amd64 \
-            --amend ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-arm64
+          set -euo pipefail
+          docker buildx imagetools inspect "${IMAGE}:sha-${FULL_SHA}-amd64"
+          docker buildx imagetools inspect "${IMAGE}:sha-${FULL_SHA}-arm64"
 
-          docker manifest push ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}
+          docker manifest rm "${IMAGE}:sha-${FULL_SHA}" || true
+          docker manifest create "${IMAGE}:sha-${FULL_SHA}" \
+            --amend "${IMAGE}:sha-${FULL_SHA}-amd64" \
+            --amend "${IMAGE}:sha-${FULL_SHA}-arm64"
+          docker manifest push "${IMAGE}:sha-${FULL_SHA}"
 
-          # Create and push the latest manifest
-          docker manifest create ghcr.io/gitroomhq/postiz-app:latest \
-            --amend ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-amd64 \
-            --amend ghcr.io/gitroomhq/postiz-app:${{ env.CONTAINERVER }}-arm64
+          docker manifest rm "${IMAGE}:sha-${SHORT_SHA}" || true
+          docker manifest create "${IMAGE}:sha-${SHORT_SHA}" \
+            --amend "${IMAGE}:sha-${SHORT_SHA}-amd64" \
+            --amend "${IMAGE}:sha-${SHORT_SHA}-arm64"
+          docker manifest push "${IMAGE}:sha-${SHORT_SHA}"
 
-          docker manifest push ghcr.io/gitroomhq/postiz-app:latest
-
-      - name: Verify Manifest
-        run: |
-          docker manifest inspect ghcr.io/gitroomhq/postiz-app:latest
+      - name: Verify manifest
+        env:
+          IMAGE: ${{ needs.publish-image-common.outputs.image }}
+          FULL_SHA: ${{ needs.publish-image-common.outputs.full_sha }}
+        run: docker manifest inspect "${IMAGE}:sha-${FULL_SHA}"
