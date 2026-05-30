@@ -49,6 +49,11 @@ import {
 } from '@gitroom/backend/services/auth/permissions/scope.guard';
 import { getAllowedIntegrationIds } from '@gitroom/backend/services/auth/token-scopes';
 import { Request } from 'express';
+import {
+  buildAuthHttpException,
+  buildIntegrationAuthHealth,
+  enrichPostErrorField,
+} from '@gitroom/nestjs-libraries/integrations/postiz-auth-contract';
 
 @ApiTags('Public API')
 @Controller('/public/v1')
@@ -175,12 +180,23 @@ export class PublicIntegrationsController {
     );
     body.type = rawBody.type;
 
-    console.log(JSON.stringify(body, null, 2));
-    return this._postsService.createPost(
-      org.id,
-      body,
-      getAllowedIntegrationIds(req as any)
-    );
+    try {
+      return await this._postsService.createPost(
+        org.id,
+        body,
+        getAllowedIntegrationIds(req as any)
+      );
+    } catch (err: any) {
+      const message =
+        err?.response?.message ||
+        err?.message ||
+        (typeof err?.getResponse === 'function'
+          ? String(err.getResponse())
+          : 'Schedule failed');
+      const status = err?.status || err?.getStatus?.() || 400;
+      const integrationId = body?.posts?.[0]?.integration?.id;
+      throw buildAuthHttpException(String(message), status, integrationId);
+    }
   }
 
   @Delete('/posts/:id')
@@ -275,6 +291,16 @@ export class PublicIntegrationsController {
         picture: integration.picture,
         disabled: integration.disabled,
         customer: integration.customer,
+        auth: buildIntegrationAuthHealth({
+          id: integration.id,
+          providerIdentifier: integration.providerIdentifier,
+          token: integration.token,
+          refreshNeeded: integration.refreshNeeded,
+          inBetweenSteps: integration.inBetweenSteps,
+          disabled: integration.disabled,
+          tokenExpiration: integration.tokenExpiration,
+          updatedAt: integration.updatedAt,
+        }),
       })),
     };
   }
@@ -292,12 +318,20 @@ export class PublicIntegrationsController {
       .map((id) => id.trim())
       .filter(Boolean);
 
+    const posts = await this._postsService.getInternalPostsByIds(
+      org.id,
+      postIds,
+      getAllowedIntegrationIds(req as any)
+    );
+
     return {
-      posts: await this._postsService.getInternalPostsByIds(
-        org.id,
-        postIds,
-        getAllowedIntegrationIds(req as any)
-      ),
+      posts: posts.map((post) => ({
+        ...post,
+        error: enrichPostErrorField(
+          typeof post.error === 'string' ? post.error : null,
+          post.integrationId
+        ),
+      })),
     };
   }
 

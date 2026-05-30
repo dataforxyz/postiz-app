@@ -4,6 +4,7 @@ import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/o
 import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { HttpForbiddenException } from '@gitroom/nestjs-libraries/services/exception.filter';
 import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
+import { enrichHttpExceptionBody } from '@gitroom/nestjs-libraries/integrations/postiz-auth-contract';
 
 @Injectable()
 export class PublicAuthMiddleware implements NestMiddleware {
@@ -16,7 +17,14 @@ export class PublicAuthMiddleware implements NestMiddleware {
     const auth = (req.headers.authorization ||
       req.headers.Authorization) as string;
     if (!auth) {
-      res.status(HttpStatus.UNAUTHORIZED).json({ msg: 'No API Key found' });
+      res
+        .status(HttpStatus.UNAUTHORIZED)
+        .json(
+          enrichHttpExceptionBody(
+            { msg: 'No API Key found' },
+            HttpStatus.UNAUTHORIZED
+          )
+        );
       return;
     }
     try {
@@ -25,7 +33,12 @@ export class PublicAuthMiddleware implements NestMiddleware {
         if (!authorization) {
           res
             .status(HttpStatus.UNAUTHORIZED)
-            .json({ msg: 'Invalid OAuth token' });
+            .json(
+              enrichHttpExceptionBody(
+                { msg: 'Invalid OAuth token' },
+                HttpStatus.UNAUTHORIZED
+              )
+            );
           return;
         }
 
@@ -52,7 +65,12 @@ export class PublicAuthMiddleware implements NestMiddleware {
         if (!org) {
           res
             .status(HttpStatus.UNAUTHORIZED)
-            .json({ msg: 'Invalid API key' });
+            .json(
+              enrichHttpExceptionBody(
+                { msg: 'Invalid API key' },
+                HttpStatus.UNAUTHORIZED
+              )
+            );
           return;
         }
 
