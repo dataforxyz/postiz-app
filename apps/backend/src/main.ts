@@ -16,6 +16,7 @@ import { AppModule } from './app.module';
 
 import { SubscriptionExceptionFilter } from '@gitroom/backend/services/auth/permissions/subscription.exception';
 import { HttpExceptionFilter } from '@gitroom/nestjs-libraries/services/exception.filter';
+import { PublicV1AuthErrorFilter } from '@gitroom/nestjs-libraries/services/public-v1-auth-error.filter';
 import { ConfigurationChecker } from '@gitroom/helpers/configuration/configuration.checker';
 import { startMcp } from '@gitroom/nestjs-libraries/chat/start.mcp';
 
@@ -60,6 +61,7 @@ async function start() {
   app.use(compression());
   app.useGlobalFilters(new SubscriptionExceptionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new PublicV1AuthErrorFilter());
 
   loadSwagger(app);
 

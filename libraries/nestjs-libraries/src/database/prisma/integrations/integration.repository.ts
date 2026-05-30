@@ -533,6 +533,10 @@ export class IntegrationRepository {
         profile: true,
         picture: true,
         disabled: true,
+        refreshNeeded: true,
+        inBetweenSteps: true,
+        tokenExpiration: true,
+        updatedAt: true,
         customer: {
           select: {
             id: true,
