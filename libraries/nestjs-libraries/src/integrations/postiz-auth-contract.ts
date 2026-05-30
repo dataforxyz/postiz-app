@@ -174,11 +174,11 @@ export function enrichHttpExceptionBody(
   httpStatus: number,
   integrationId?: string
 ): Record<string, unknown> {
-  const base =
+  const base: Record<string, unknown> =
     typeof body === 'string'
       ? { msg: body, message: body }
       : body && typeof body === 'object'
-        ? { ...body }
+        ? { ...(body as Record<string, unknown>) }
         : { msg: 'Error' };
 
   const message =
