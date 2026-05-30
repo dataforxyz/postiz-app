@@ -102,7 +102,16 @@ export class PublicIntegrationsController {
     });
 
     const buffer = Buffer.from(response.data);
-    const responseMime = response.headers?.['content-type']?.split(';')[0]?.trim();
+    const responseContentType = response.headers?.['content-type'];
+    const responseMime = (
+      Array.isArray(responseContentType)
+        ? responseContentType[0]
+        : typeof responseContentType === 'string'
+          ? responseContentType
+          : undefined
+    )
+      ?.split(';')[0]
+      ?.trim();
     const urlMime = lookup(body?.url?.split?.('?')?.[0]);
     const mimetype = (urlMime || responseMime || 'image/jpeg') as string;
     const ext = extension(mimetype) || 'jpg';
