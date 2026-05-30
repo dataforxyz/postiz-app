@@ -2,6 +2,7 @@ import {
   buildIntegrationAuthHealth,
   classifyPostizAuthError,
   enrichHttpExceptionBody,
+  enrichPostErrorField,
   isPlatformOAuthMessage,
 } from './postiz-auth-contract';
 
@@ -15,6 +16,12 @@ describe('postiz-auth-contract', () => {
     expect(result?.error_class).toBe('platform_oauth');
     expect(result?.error_code).toBe('REVOKED_ACCESS_TOKEN');
     expect(result?.integration_id).toBe('int-1');
+  });
+
+  it('does not enrich generic post errors as transient', () => {
+    expect(enrichPostErrorField('media file too large', 'int-1')).toBe(
+      'media file too large'
+    );
   });
 
   it('classifies bare 401 as org_api_key', () => {

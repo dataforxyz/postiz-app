@@ -35,7 +35,11 @@ export class PublicAuthMiddleware implements NestMiddleware {
             .status(HttpStatus.UNAUTHORIZED)
             .json(
               enrichHttpExceptionBody(
-                { msg: 'Invalid OAuth token' },
+                {
+                  msg: 'Invalid Postiz API token',
+                  error_class: 'org_api_key',
+                  error_code: 'INVALID_ORG_API_KEY',
+                },
                 HttpStatus.UNAUTHORIZED
               )
             );

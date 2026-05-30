@@ -45,10 +45,8 @@ const AUTH_MARKERS = [
   'invalid_grant',
   'error validating access token',
   'session has been invalidated',
-  'authentication failed',
   'refresh_token',
   '"type":"refresh_token"',
-  'oauth',
   'oauthexception',
   're-authorize',
   'reauthorize',
@@ -231,10 +229,10 @@ export function enrichPostErrorField(
   }
   const structured = classifyPostizAuthError({
     message: error,
-    httpStatus: 500,
+    httpStatus: 401,
     integrationId,
   });
-  if (!structured) {
+  if (!structured || structured.error_class === 'transient') {
     return error;
   }
   return {

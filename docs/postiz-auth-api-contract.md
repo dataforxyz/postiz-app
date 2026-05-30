@@ -21,7 +21,7 @@ HTTP error bodies from `/public/v1/*` include machine-readable fields when the f
 - `POST /public/v1/posts` (schedule / create)
 - `POST /public/v1/upload`
 - `GET /public/v1/internal/posts/status` — `error` on failed posts is a string **or** the structured object above
-- `401` from public API auth middleware → `error_class: org_api_key`
+- `401` from public API auth middleware → `error_class: org_api_key` (missing/invalid org API key or `pos_` access token)
 
 ### `error_class` routing (Juston)
 
