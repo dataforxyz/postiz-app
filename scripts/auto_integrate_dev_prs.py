@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# DEPRECATED: replaced by the watcher at
+# juston-infra/juston-deploy-local/scripts/pi-pr-watcher/watch-juston-prs.sh
+# (live link at ~/bin/watch-juston-prs.sh). The watcher polls open preview
+# PRs, hands each to `pi` for focused validation, and merges via `tea pulls
+# merge`. This script is retained on disk for manual rollback only — Make
+# install targets that scheduled it via cron/systemd have been removed.
+#
 """Automatically integrate open PRs targeting the dev integration branch.
 
 Intended to be run from cron (every 2 minutes via flock). For each open PR
