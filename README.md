@@ -148,12 +148,12 @@ This repository's source code is available under the [AGPL-3.0 license](LICENSE)
 
 Feature work and documentation updates should happen in a dedicated worktree, not the shared checkout.
 
-- Start from the clean integration branch: `dev/all-open-prs-preview`.
+- Start from the clean integration branch: `main`.
 - Create a worktree in `/home/sumwey/worktrees/` with your feature branch, for example:
 
 ```bash
 git worktree add /home/sumwey/worktrees/postiz-app-<feature-name> \
-  -b <branch-name> origin/dev/all-open-prs-preview
+  -b <branch-name> origin/main
 ```
 
 - Run verification in the worktree, then open PRs with the repo helper:
