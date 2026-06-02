@@ -59,6 +59,13 @@ type PostWithConditionals = Post & {
   childrenPost: Post[];
 };
 
+const isIntegrationAllowed = (
+  allowedIntegrationIds: string[] | undefined,
+  integrationId?: string | null
+) =>
+  !allowedIntegrationIds?.length ||
+  (!!integrationId && allowedIntegrationIds.includes(integrationId));
+
 @Injectable()
 export class PostsService {
   private storage = UploadFactory.createStorage();
@@ -84,10 +91,15 @@ export class PostsService {
   async getMissingContent(
     orgId: string,
     postId: string,
-    forceRefresh = false
+    forceRefresh = false,
+    allowedIntegrationIds?: string[]
   ): Promise<{ id: string; url: string }[]> {
     const post = await this._postRepository.getPostById(postId, orgId);
     if (!post || post.releaseId !== 'missing') {
+      return [];
+    }
+
+    if (!isIntegrationAllowed(allowedIntegrationIds, post.integrationId)) {
       return [];
     }
 
@@ -153,10 +165,15 @@ export class PostsService {
     orgId: string,
     postId: string,
     date: number,
-    forceRefresh = false
+    forceRefresh = false,
+    allowedIntegrationIds?: string[]
   ): Promise<AnalyticsData[] | { missing: true }> {
     const post = await this._postRepository.getPostById(postId, orgId);
     if (!post || !post.releaseId) {
+      return [];
+    }
+
+    if (!isIntegrationAllowed(allowedIntegrationIds, post.integrationId)) {
       return [];
     }
 
@@ -232,8 +249,16 @@ export class PostsService {
     return [];
   }
 
-  async getStatistics(orgId: string, id: string) {
+  async getStatistics(orgId: string, id: string, allowedIntegrationIds?: string[]) {
     const getPost = await this.getPostsRecursively(id, true, orgId, true);
+    if (
+      getPost.length &&
+      !isIntegrationAllowed(allowedIntegrationIds, getPost[0].integration?.id)
+    ) {
+      return {
+        clicks: [],
+      };
+    }
     const content = getPost.map((p) => p.content);
     const shortLinksTracking = await this._shortLinkService.getStatistics(
       content
@@ -247,7 +272,8 @@ export class PostsService {
   async mapTypeToPost(
     body: CreatePostDto,
     organization: string,
-    replaceDraft: boolean = false
+    replaceDraft: boolean = false,
+    allowedIntegrationIds?: string[]
   ): Promise<CreatePostDto> {
     if (!body?.posts?.every((p) => p?.integration?.id)) {
       throw new BadRequestException('All posts must have an integration id');
@@ -260,7 +286,8 @@ export class PostsService {
         body?.posts?.map(async (post) => {
           const integration = await this._integrationService.getIntegrationById(
             organization,
-            post.integration.id
+            post.integration.id,
+            allowedIntegrationIds
           );
 
           if (!integration) {
@@ -325,8 +352,8 @@ export class PostsService {
     ];
   }
 
-  async getPosts(orgId: string, query: GetPostsDto) {
-    return this._postRepository.getPosts(orgId, query);
+  async getPosts(orgId: string, query: GetPostsDto, allowedIntegrationIds?: string[]) {
+    return this._postRepository.getPosts(orgId, query, allowedIntegrationIds);
   }
 
   async getPostsMinified(orgId: string, query: GetPostsDto) {
@@ -335,9 +362,17 @@ export class PostsService {
     });
   }
 
-  async getPostsList(orgId: string, query: GetPostsListDto) {
+  async getPostsList(
+    orgId: string,
+    query: GetPostsListDto,
+    allowedIntegrationIds?: string[]
+  ) {
     return minifyPostsList(
-      await this._postRepository.getPostsList(orgId, query)
+      await this._postRepository.getPostsList(
+        orgId,
+        query,
+        allowedIntegrationIds
+      )
     );
   }
 
@@ -528,8 +563,19 @@ export class PostsService {
     ];
   }
 
-  async getPost(orgId: string, id: string, convertToJPEG = false) {
+  async getPost(
+    orgId: string,
+    id: string,
+    convertToJPEG = false,
+    allowedIntegrationIds?: string[]
+  ) {
     const posts = await this.getPostsRecursively(id, true, orgId, true);
+    if (
+      posts.length &&
+      !isIntegrationAllowed(allowedIntegrationIds, posts[0].integration?.id)
+    ) {
+      throw new BadRequestException('Post not found');
+    }
     const list = {
       group: posts?.[0]?.group,
       posts: await Promise.all(
@@ -552,6 +598,47 @@ export class PostsService {
 
   async getOldPosts(orgId: string, date: string) {
     return this._postRepository.getOldPosts(orgId, date);
+  }
+
+  async getInternalPostsByIds(
+    orgId: string,
+    ids: string[],
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    if (!ids.length) {
+      return [];
+    }
+    return this._postRepository.getInternalPostsByIds(
+      orgId,
+      ids,
+      allowedIntegrationIds
+    );
+  }
+
+  async getInternalPostsByIntegrationWindow(
+    orgId: string,
+    integrationIds: string[],
+    options: {
+      startDate?: string;
+      endDate?: string;
+      states?: State[];
+      limit?: number;
+    },
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    if (!integrationIds.length) {
+      return [];
+    }
+
+    return this._postRepository.getInternalPostsByIntegrationWindow(
+      orgId,
+      integrationIds,
+      options.startDate ? dayjs.utc(options.startDate).toDate() : undefined,
+      options.endDate ? dayjs.utc(options.endDate).toDate() : undefined,
+      options.states,
+      allowedIntegrationIds,
+      options.limit
+    );
   }
 
   public async updateTags(orgId: string, post: Post[]): Promise<Post[]> {
@@ -652,7 +739,22 @@ export class PostsService {
       });
   }
 
-  async deletePost(orgId: string, group: string) {
+  async deletePost(
+    orgId: string,
+    group: string,
+    allowedIntegrationIds?: string[]
+  ) {
+    if (allowedIntegrationIds?.length) {
+      const posts = await this._postRepository.getPostsByGroup(orgId, group);
+      if (
+        posts.some(
+          (post) => !isIntegrationAllowed(allowedIntegrationIds, post.integrationId)
+        )
+      ) {
+        throw new BadRequestException('Post not found');
+      }
+    }
+
     const post = await this._postRepository.deletePost(orgId, group);
 
     if (post?.id) {
@@ -876,10 +978,21 @@ export class PostsService {
   async createPost(
     orgId: string,
     body: CreatePostDto,
-    creationMethod: CreationMethod
+    creationMethodOrAllowedIntegrationIds: CreationMethod | string[] = 'WEB',
+    allowedIntegrationIds?: string[]
   ): Promise<any[]> {
+    const creationMethod = Array.isArray(creationMethodOrAllowedIntegrationIds)
+      ? 'API'
+      : creationMethodOrAllowedIntegrationIds;
+    const scopedIntegrationIds = Array.isArray(creationMethodOrAllowedIntegrationIds)
+      ? creationMethodOrAllowedIntegrationIds
+      : allowedIntegrationIds;
     const postList = [];
     for (const post of body.posts) {
+      if (!isIntegrationAllowed(scopedIntegrationIds, post.integration.id)) {
+        throw new BadRequestException('Integration not found');
+      }
+
       const provider = this._integrationManager.getSocialIntegration(
         (post.settings as any)?.__type
       );
@@ -1097,10 +1210,19 @@ export class PostsService {
     return this._postRepository.findPopularPosts(category, topic);
   }
 
-  async findFreeDateTime(orgId: string, integrationId?: string) {
+  async findFreeDateTime(
+    orgId: string,
+    integrationId?: string,
+    allowedIntegrationIds?: string[]
+  ) {
+    if (!isIntegrationAllowed(allowedIntegrationIds, integrationId || null)) {
+      throw new BadRequestException('Integration not found');
+    }
+
     const findTimes = await this._integrationService.findFreeDateTime(
       orgId,
-      integrationId
+      integrationId,
+      allowedIntegrationIds
     );
     return this.findFreeDateTimeRecursive(
       orgId,

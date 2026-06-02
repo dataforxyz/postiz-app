@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/media.service';
 import { UploadFactory } from '@gitroom/nestjs-libraries/upload/upload.factory';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { ensureToolPermission } from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class GenerateImageTool implements AgentToolInterface {
@@ -36,11 +37,14 @@ export class GenerateImageTool implements AgentToolInterface {
         id: z.string(),
         path: z.string(),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
-        const org = JSON.parse((context?.requestContext as any)?.get('organization') as string);
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        ensureToolPermission('write');
+        // @ts-ignore
+        const org = JSON.parse(runtimeContext.get('organization') as string);
         const image = await this._mediaService.generateImage(
-          inputData.prompt,
+          context.prompt,
           org
         );
 

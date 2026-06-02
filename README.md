@@ -146,3 +146,28 @@ This repository's source code is available under the [AGPL-3.0 license](LICENSE)
 <p align="center">
   <img src="https://github.com/snyk-labs/secure-developer-sample-repo/raw/main/badge_full.svg" alt="Secure Developer Badge Full" width="150">
 </p>
+
+## Development workflow
+
+Feature work and documentation updates should happen in a dedicated worktree, not the shared checkout.
+
+- Start from the clean integration branch: `main`.
+- Create a worktree in `/home/sumwey/worktrees/` with your feature branch, for example:
+
+```bash
+git worktree add /home/sumwey/worktrees/postiz-app-<feature-name> \
+  -b <branch-name> origin/main
+```
+
+- Run verification in the worktree, then open PRs with the repo helper:
+
+```bash
+scripts/open_pr.sh \
+  --head <branch-name> \
+  --title "<pr title>" \
+  --body "Closes #<issue>" \
+  --base preview \
+  --skip-verify
+```
+
+See the repository workflow and review docs for the expected open PR process.

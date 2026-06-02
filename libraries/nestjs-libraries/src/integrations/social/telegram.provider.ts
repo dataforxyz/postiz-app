@@ -12,6 +12,7 @@ import mime from 'mime';
 import TelegramBot from 'node-telegram-bot-api';
 import { Integration } from '@prisma/client';
 import striptags from 'striptags';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const telegramBot = new TelegramBot(process.env.TELEGRAM_TOKEN!);
 // Added to support local storage posting
@@ -332,5 +333,24 @@ export class TelegramProvider extends SocialAbstract implements SocialProvider {
       console.error('Error checking bot privileges:', error);
       return false;
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'telegram',
+      textMaxChars: 4096,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
+      maxImages: 10,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['bot_must_be_admin'],
+      textFormat: 'html',
+      notes: 'Media group max 10 items; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

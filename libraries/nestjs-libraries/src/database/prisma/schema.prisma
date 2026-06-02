@@ -43,6 +43,7 @@ model Organization {
   webhooks            Webhooks[]
   oauthApp            OAuthApp[]
   oauthAuthorizations OAuthAuthorization[]
+  apiTokens           ApiToken[]
 
   @@index([apiKey])
   @@index([streakSince])
@@ -341,6 +342,7 @@ model Integration {
   orderItems            OrderItems[]
   plugs                 Plugs[]
   posts                 Post[]
+  apiTokenScopes        ApiTokenScope[]
 
   @@unique([organizationId, internalId])
   @@index([rootInternalId])
@@ -353,6 +355,33 @@ model Integration {
   @@index([inBetweenSteps])
   @@index([refreshNeeded])
   @@index([disabled])
+}
+
+model ApiToken {
+  id             String          @id @default(uuid())
+  name           String
+  tokenHash      String          @unique
+  permissions    String[]
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  scopes         ApiTokenScope[]
+  createdAt      DateTime        @default(now())
+  revokedAt      DateTime?
+  lastUsedAt     DateTime?
+
+  @@index([organizationId])
+  @@index([revokedAt])
+}
+
+model ApiTokenScope {
+  id            String      @id @default(uuid())
+  apiTokenId    String
+  apiToken      ApiToken    @relation(fields: [apiTokenId], references: [id], onDelete: Cascade)
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([apiTokenId, integrationId])
+  @@index([integrationId])
 }
 
 model Signatures {

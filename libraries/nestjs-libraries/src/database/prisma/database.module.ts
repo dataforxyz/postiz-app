@@ -44,6 +44,8 @@ import { ErrorsRepository } from '@gitroom/nestjs-libraries/database/prisma/erro
 import { ErrorsService } from '@gitroom/nestjs-libraries/database/prisma/errors/errors.service';
 import { AdminStatsRepository } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.repository';
 import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/admin-stats/admin-stats.service';
+import { ApiTokenRepository } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.repository';
+import { ApiTokenService } from '@gitroom/nestjs-libraries/database/prisma/api-tokens/api-token.service';
 
 @Global()
 @Module({
@@ -90,6 +92,8 @@ import { AdminStatsService } from '@gitroom/nestjs-libraries/database/prisma/adm
     ThirdPartyService,
     OAuthRepository,
     OAuthService,
+    ApiTokenRepository,
+    ApiTokenService,
     VideoManager,
     AnnouncementsRepository,
     AnnouncementsService,

@@ -14,6 +14,7 @@ import { Integration } from '@prisma/client';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { LemmySettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/lemmy.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class LemmyProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Lemmy instances typically have moderate limits
@@ -309,5 +310,24 @@ export class LemmyProvider extends SocialAbstract implements SocialProvider {
       name: p.community.title,
       id: p.community.id,
     }));
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'lemmy',
+      textMaxChars: 10000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: 1,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'markdown',
+      notes: 'Post title has no Postiz-side limit (Lemmy platform limit is 200 chars); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

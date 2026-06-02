@@ -1,5 +1,11 @@
 import { Integration } from '@prisma/client';
 
+export {
+  IntegrationCapabilities,
+  IntegrationMediaKind,
+  IntegrationTextFormat,
+} from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
+
 export interface ClientInformation {
   client_id: string;
   client_secret: string;

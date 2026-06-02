@@ -9,6 +9,7 @@ import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.ab
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import axios from 'axios';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const MOLTBOOK_API_BASE = 'https://www.moltbook.com/api/v1';
 
@@ -191,5 +192,24 @@ export class MoltbookProvider extends SocialAbstract implements SocialProvider {
     }
 
     return results;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'moltbook',
+      textMaxChars: 300,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

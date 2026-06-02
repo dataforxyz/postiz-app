@@ -5,6 +5,7 @@ import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 import z from 'zod';
 import { ModuleRef } from '@nestjs/core';
 import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { ensureToolPermission } from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 @Injectable()
 export class VideoFunctionTool implements AgentToolInterface {
@@ -32,13 +33,15 @@ export class VideoFunctionTool implements AgentToolInterface {
         functionName: z.string(),
       }),
       outputSchema: z.object({}).passthrough(),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context } = args;
+        checkAuth(args, options);
+        ensureToolPermission('read');
         const videos = this._videoManagerService.getAllVideos();
         const findVideo = videos.find(
           (p) =>
-            p.identifier === inputData.identifier &&
-            p.tools.some((p) => p.functionName === inputData.functionName)
+            p.identifier === context.identifier &&
+            p.tools.some((p) => p.functionName === context.functionName)
         );
 
         if (!findVideo) {
@@ -48,7 +51,7 @@ export class VideoFunctionTool implements AgentToolInterface {
         const func = await this._moduleRef
           // @ts-ignore
           .get(findVideo.target, { strict: false })
-          [inputData.functionName]();
+          [context.functionName]();
         return func;
       },
     });

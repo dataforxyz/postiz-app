@@ -10,6 +10,7 @@ import { Integration } from '@prisma/client';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { MediumSettingsDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/medium.settings.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class MediumProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Medium has lenient publishing limits
@@ -139,5 +140,24 @@ export class MediumProvider extends SocialAbstract implements SocialProvider {
         releaseURL: data.url,
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'medium',
+      textMaxChars: 100000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'gif'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'markdown',
+      notes: 'Blog post title — no Postiz-side limit enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

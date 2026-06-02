@@ -11,6 +11,7 @@ import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { useDecisionModal } from '@gitroom/frontend/components/layout/new-modal';
 import { DeveloperComponent } from '@gitroom/frontend/components/developer/developer.component';
 import clsx from 'clsx';
+import { ApiTokensComponent } from '@gitroom/frontend/components/settings/api-tokens';
 
 const mcpClients = [
   'Claude Code',
@@ -703,6 +704,7 @@ const PublicApiContent = () => {
       <CliSection apiKey={user.publicApi} />
 
       <McpSection user={user} mcpBase={mcpBase} />
+      <ApiTokensComponent />
     </div>
   );
 };

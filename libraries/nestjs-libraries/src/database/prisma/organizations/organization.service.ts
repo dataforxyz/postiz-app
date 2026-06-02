@@ -130,4 +130,68 @@ export class OrganizationService {
       shortlink
     );
   }
+
+  // ── Instance-admin API helpers ────────────────────────────────────────
+
+  adminCreateOrgAndOwner(name: string, ownerEmail: string, ownerPassword?: string) {
+    return this._organizationRepository.adminCreateOrgAndOwner(
+      name,
+      ownerEmail,
+      ownerPassword
+    );
+  }
+
+  adminListOrgs() {
+    return this._organizationRepository.adminListOrgs();
+  }
+
+  adminDeleteOrg(id: string) {
+    return this._organizationRepository.adminDeleteOrg(id);
+  }
+
+  adminUpdateOrg(id: string, updates: { name?: string; description?: string }) {
+    return this._organizationRepository.adminUpdateOrg(id, updates);
+  }
+
+  async adminAddUserToOrg(
+    orgId: string,
+    email: string,
+    role: 'USER' | 'ADMIN',
+    password?: string
+  ) {
+    const user = await this._organizationRepository.adminFindOrCreateUser(
+      email,
+      password
+    );
+    const membership = await this._organizationRepository.adminAddUserToOrg(
+      orgId,
+      user.id,
+      role
+    );
+    return { userId: user.id, membershipId: membership.id };
+  }
+
+  adminRemoveUserFromOrg(orgId: string, userId: string) {
+    return this._organizationRepository.adminRemoveUserFromOrg(orgId, userId);
+  }
+
+  adminUpdateUser(
+    userId: string,
+    updates: { email?: string; role?: string },
+    orgId?: string
+  ) {
+    const roleVal =
+      updates.role !== undefined
+        ? (updates.role as import('@prisma/client').Role)
+        : undefined;
+    return this._organizationRepository.adminUpdateUser(
+      userId,
+      { email: updates.email, role: roleVal },
+      orgId
+    );
+  }
+
+  adminListOrgUsers(orgId: string) {
+    return this._organizationRepository.adminListOrgUsers(orgId);
+  }
 }

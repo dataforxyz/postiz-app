@@ -21,6 +21,7 @@ import { LinkedinDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-sett
 import imageToPDF from 'image-to-pdf';
 import { Readable } from 'stream';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   'LinkedIn can have maximum one attachment when selecting video, when choosing a carousel on LinkedIn minimum amount of attachment must be two, and only pictures, if uploading a video, LinkedIn can have only one attachment'
@@ -961,5 +962,24 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
 
   mentionFormat(idOrHandle: string, name: string) {
     return `@[${name.replace('@', '')}](urn:li:organization:${idOrHandle})`;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'linkedin',
+      textMaxChars: 3000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel', 'document_pdf'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: 600,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['supports_pdf_carousel_synthesis'],
+      textFormat: 'plain',
+      notes: 'post_as_images_carousel synthesizes PDF from images; native PDF supported via isPdf branch; .mp4 routes to /videos endpoint, others to /images (linkedin.provider.ts:238-247); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

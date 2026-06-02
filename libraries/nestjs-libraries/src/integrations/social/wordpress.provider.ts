@@ -14,6 +14,7 @@ import slugify from 'slugify';
 import axios from 'axios';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { string } from 'yup';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class WordpressProvider
   extends SocialAbstract
@@ -255,5 +256,24 @@ export class WordpressProvider
         releaseURL: submit.link,
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'wordpress',
+      textMaxChars: 100000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'html',
+      notes: 'Blog post title — no Postiz-side limit enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

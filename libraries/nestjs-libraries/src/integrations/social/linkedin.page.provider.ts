@@ -12,6 +12,7 @@ import { Integration } from '@prisma/client';
 import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   'LinkedIn can have maximum one attachment when selecting video, when choosing a carousel on LinkedIn minimum amount of attachment must be two, and only pictures, if uploading a video, LinkedIn can have only one attachment'
@@ -685,6 +686,25 @@ export class LinkedinPageProvider
     }
 
     return false;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'linkedin-page',
+      textMaxChars: 3000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel', 'document_pdf'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: 600,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['supports_pdf_carousel_synthesis'],
+      textFormat: 'plain',
+      notes: 'Same as linkedin profile plus paid_partnership flag; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }
 

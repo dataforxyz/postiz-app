@@ -17,6 +17,7 @@ import { Integration } from '@prisma/client';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   "Facebook posts can be text only, or include photos or a video. If it's a story, it must have at least one attachment (photo or video), and each media is published as a separate story."
@@ -795,5 +796,24 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
       console.error('Error fetching Facebook post analytics:', err);
       return [];
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'facebook',
+      textMaxChars: 63206,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel', 'reel'],
+      maxImages: null,
+      maxImageBytes: 4194304,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Videos posted to /videos return facebook.com/reel/ URLs; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

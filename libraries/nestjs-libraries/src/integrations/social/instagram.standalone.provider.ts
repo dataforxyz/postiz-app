@@ -14,6 +14,7 @@ import { InstagramDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-set
 import { InstagramProvider } from '@gitroom/nestjs-libraries/integrations/social/instagram.provider';
 import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const instagramProvider = new InstagramProvider();
 
@@ -232,5 +233,24 @@ export class InstagramStandaloneProvider
       date,
       'graph.instagram.com'
     );
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'instagram-standalone',
+      textMaxChars: 2200,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'carousel', 'story', 'reel'],
+      maxImages: 10,
+      maxImageBytes: 4194304,
+      maxVideoSeconds: 90,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: ['4:5', '1.91:1'],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['requires_business_account', 'supports_collaborators'],
+      textFormat: 'plain',
+      notes: 'Same as instagram, alt OAuth flow; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

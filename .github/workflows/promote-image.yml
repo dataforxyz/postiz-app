@@ -1,0 +1,91 @@
+name: Promote Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Commit SHA whose image was already published"
+        required: true
+      target_tag:
+        description: "Promotion tag to move to that SHA"
+        required: true
+        type: choice
+        options:
+          - staging
+          - prod
+  push:
+    tags:
+      - staging
+      - prod
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  promote-image:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref_type == 'tag' && (github.ref_name == 'staging' || github.ref_name == 'prod'))
+    env:
+      IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+    steps:
+      - name: Resolve image target
+        id: meta
+        run: |
+          image_name="${IMAGE_NAME:-postiz-app}"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/${image_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve promotion target
+        id: promote
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            source_sha="${{ github.sha }}"
+            target_tag="${{ github.ref_name }}"
+          else
+            source_sha="${{ github.event.inputs.source_sha }}"
+            target_tag="${{ github.event.inputs.target_tag }}"
+          fi
+          {
+            echo "full_source_tag=sha-${source_sha}"
+            echo "short_source_tag=sha-${source_sha:0:7}"
+            echo "target_tag=${target_tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify published image exists
+        id: verify
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.image }}"
+          if docker manifest inspect "${image}:${{ steps.promote.outputs.full_source_tag }}" >/dev/null 2>&1; then
+            echo "source_tag=${{ steps.promote.outputs.full_source_tag }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if docker manifest inspect "${image}:${{ steps.promote.outputs.short_source_tag }}" >/dev/null 2>&1; then
+            echo "source_tag=${{ steps.promote.outputs.short_source_tag }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Image ${image}:${{ steps.promote.outputs.full_source_tag }} or ${{ steps.promote.outputs.short_source_tag }} is unavailable." >&2
+          exit 1
+
+      - name: Retag existing image
+        run: |
+          set -euo pipefail
+          image="${{ steps.meta.outputs.image }}"
+          source_tag="${{ steps.verify.outputs.source_tag }}"
+          target_tag="${{ steps.promote.outputs.target_tag }}"
+          docker buildx imagetools create \
+            -t "${image}:${target_tag}" \
+            "${image}:${source_tag}"

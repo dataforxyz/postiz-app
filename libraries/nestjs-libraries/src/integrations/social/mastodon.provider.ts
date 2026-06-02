@@ -9,6 +9,7 @@ import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.ab
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { number, string } from 'yup';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class MastodonProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 5; // Mastodon instances typically have generous limits
@@ -272,5 +273,24 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
       process.env.MASTODON_URL || 'https://mastodon.social',
       postDetails
     );
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'mastodon',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'gif'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['instance_specific'],
+      textFormat: 'plain',
+      notes: 'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

@@ -126,10 +126,26 @@ export class PostsRepository {
     });
   }
 
-  async getPosts(orgId: string, query: GetPostsDto) {
+  async getPosts(orgId: string, query: GetPostsDto, allowedIntegrationIds?: string[]) {
     // Use the provided start and end dates directly
     const startDate = dayjs.utc(query.startDate).toDate();
     const endDate = dayjs.utc(query.endDate).toDate();
+    const integrationFilter = {
+      deletedAt: null as Date | null,
+      organizationId: orgId,
+      ...(query.customer
+        ? {
+            customerId: query.customer,
+          }
+        : {}),
+      ...(allowedIntegrationIds?.length
+        ? {
+            id: {
+              in: allowedIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const list = await this._post.model.post.findMany({
       where: {
@@ -157,19 +173,9 @@ export class PostsRepository {
             ],
           },
         ],
-        integration: {
-          deletedAt: null,
-          organizationId: orgId,
-        },
+        integration: integrationFilter,
         deletedAt: null,
         parentPostId: null,
-        ...(query.customer
-          ? {
-              integration: {
-                customerId: query.customer,
-              },
-            }
-          : {}),
       },
       select: {
         id: true,
@@ -220,10 +226,30 @@ export class PostsRepository {
     }, [] as any[]);
   }
 
-  async getPostsList(orgId: string, query: GetPostsListDto) {
+  async getPostsList(
+    orgId: string,
+    query: GetPostsListDto,
+    allowedIntegrationIds?: string[]
+  ) {
     const page = query.page || 0;
     const limit = query.limit || 20;
     const skip = page * limit;
+    const integrationFilter = {
+      deletedAt: null as Date | null,
+      organizationId: orgId,
+      ...(query.customer
+        ? {
+            customerId: query.customer,
+          }
+        : {}),
+      ...(allowedIntegrationIds?.length
+        ? {
+            id: {
+              in: allowedIntegrationIds,
+            },
+          }
+        : {}),
+    };
 
     const stateFilter = query.state || 'all';
     const stateAndDate =
@@ -263,16 +289,7 @@ export class PostsRepository {
       deletedAt: null as Date | null,
       parentPostId: null as string | null,
       intervalInDays: null as number | null,
-
-      integration: {
-        deletedAt: null as any,
-        organizationId: orgId,
-        ...(query.customer
-          ? {
-              customerId: query.customer,
-            }
-          : {}),
-      },
+      integration: integrationFilter,
     };
 
     const [posts, total] = await Promise.all([
@@ -917,6 +934,103 @@ export class PostsRepository {
             type: true,
           },
         },
+      },
+    });
+  }
+
+  async getInternalPostsByIds(
+    orgId: string,
+    ids: string[],
+    allowedIntegrationIds?: string[]
+  ): Promise<any[]> {
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        id: {
+          in: ids,
+        },
+        deletedAt: null,
+        parentPostId: null,
+        ...(allowedIntegrationIds?.length
+          ? {
+              integrationId: {
+                in: allowedIntegrationIds,
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        publishDate: 'asc',
+      },
+      select: {
+        id: true,
+        state: true,
+        publishDate: true,
+        content: true,
+        integrationId: true,
+        releaseURL: true,
+        error: true,
+        group: true,
+        releaseId: true,
+      },
+    });
+  }
+
+  async getInternalPostsByIntegrationWindow(
+    orgId: string,
+    integrationIds: string[],
+    startDate?: Date,
+    endDate?: Date,
+    states?: State[],
+    allowedIntegrationIds?: string[],
+    limit?: number
+  ): Promise<any[]> {
+    const permittedIntegrationIds = allowedIntegrationIds?.length
+      ? integrationIds.filter((id) => allowedIntegrationIds.includes(id))
+      : integrationIds;
+
+    if (!permittedIntegrationIds.length) {
+      return [];
+    }
+
+    return this._post.model.post.findMany({
+      where: {
+        organizationId: orgId,
+        integrationId: {
+          in: permittedIntegrationIds,
+        },
+        deletedAt: null,
+        parentPostId: null,
+        ...(states?.length
+          ? {
+              state: {
+                in: states,
+              },
+            }
+          : {}),
+        ...((startDate || endDate)
+          ? {
+              publishDate: {
+                ...(startDate ? { gte: startDate } : {}),
+                ...(endDate ? { lte: endDate } : {}),
+              },
+            }
+          : {}),
+      },
+      orderBy: {
+        publishDate: 'asc',
+      },
+      ...(limit ? { take: limit } : {}),
+      select: {
+        id: true,
+        state: true,
+        publishDate: true,
+        content: true,
+        integrationId: true,
+        releaseURL: true,
+        error: true,
+        group: true,
+        releaseId: true,
       },
     });
   }

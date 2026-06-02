@@ -20,6 +20,7 @@ import dayjs from 'dayjs';
 import { GaxiosResponse } from 'gaxios/build/src/common';
 import Schema$Video = youtube_v3.Schema$Video;
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const clientAndYoutube = () => {
   const client = new google.auth.OAuth2({
@@ -636,5 +637,24 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
       console.error('Error fetching YouTube post analytics:', err);
       return [];
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'youtube',
+      textMaxChars: 5000,
+      textMaxCharsPremium: null,
+      titleMaxChars: 100,
+      mediaKinds: ['video'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['requires_title'],
+      textFormat: 'plain',
+      notes: 'Postiz does not distinguish Shorts vs long-form; YouTube auto-classifies; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

@@ -16,6 +16,7 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 import { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   'TikTok can have one video or one picture or multiple pictures, it cannot be without an attachment'
@@ -886,5 +887,24 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       console.error('Error fetching TikTok post analytics:', err);
       return [];
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'tiktok',
+      textMaxChars: 2000,
+      textMaxCharsPremium: null,
+      titleMaxChars: 90,
+      mediaKinds: ['text', 'image', 'video', 'photo_carousel'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: true,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'max_video_post_duration_sec fetched per creator from TikTok creator-info; PHOTO mode supports photo_images carousel; .mp4 routes to video upload, others to PHOTO content (tiktok.provider.ts:461,511,549); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

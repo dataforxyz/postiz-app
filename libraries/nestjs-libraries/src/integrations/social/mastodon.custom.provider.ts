@@ -6,6 +6,7 @@ import {
 import { MastodonProvider } from '@gitroom/nestjs-libraries/integrations/social/mastodon.provider';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { Integration } from '@prisma/client';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class MastodonCustomProvider extends MastodonProvider {
   override identifier = 'mastodon-custom';
@@ -99,5 +100,24 @@ export class MastodonCustomProvider extends MastodonProvider {
       process.env.MASTODON_URL || 'https://mastodon.social',
       postDetails
     );
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'mastodon-custom',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'gif'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['instance_specific'],
+      textFormat: 'plain',
+      notes: 'Same as mastodon, custom instance URL; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

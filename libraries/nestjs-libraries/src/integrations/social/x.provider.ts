@@ -22,6 +22,7 @@ import { stripLinks as removeLinks } from '@gitroom/helpers/utils/strip.links';
 import { XDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/x.dto';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   `X can have maximum 4 pictures, or maximum one video, it can also be without attachments ${
@@ -842,5 +843,24 @@ export class XProvider extends SocialAbstract implements SocialProvider {
 
   mentionFormat(idOrHandle: string, name: string) {
     return `@${idOrHandle}`;
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'x',
+      textMaxChars: 200,
+      textMaxCharsPremium: 4000,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
+      maxImages: 4,
+      maxImageBytes: null,
+      maxVideoSeconds: 120,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['supports_threads', 'supports_reply_restriction'],
+      textFormat: 'plain',
+      notes: 'Postiz hard-codes 200/4000, not X native 280/25000; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

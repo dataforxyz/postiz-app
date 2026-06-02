@@ -12,6 +12,11 @@ import {
   ValidUrlExtension,
   ValidUrlPath,
 } from '@gitroom/helpers/utils/valid.url.path';
+import {
+  ensureToolPermission,
+  getAllowedToolIntegrationIds,
+  isToolIntegrationAllowed,
+} from '@gitroom/nestjs-libraries/chat/tools/token-scope.utils';
 
 const validUrlExtension = new ValidUrlExtension();
 const validUrlPath = new ValidUrlPath();
@@ -130,19 +135,27 @@ If the tools return errors, you would need to rerun it with the right parameters
           )
           .or(z.object({ errors: z.string() })),
       }),
-      execute: async (inputData, context) => {
-        checkAuth(inputData, context);
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        ensureToolPermission('write');
         const organizationId = JSON.parse(
-          (context?.requestContext as any)?.get('organization') as string
+          // @ts-ignore
+          runtimeContext.get('organization') as string
         ).id;
         const finalOutput = [];
 
         const integrations = {} as Record<string, Integration>;
-        for (const platform of inputData.socialPost) {
+        const allowedIntegrationIds = getAllowedToolIntegrationIds();
+        for (const platform of context.socialPost) {
+          if (!isToolIntegrationAllowed(platform.integrationId)) {
+            return { output: { errors: 'Integration not found' } };
+          }
           integrations[platform.integrationId] =
             await this._integrationService.getIntegrationById(
               organizationId,
-              platform.integrationId
+              platform.integrationId,
+              allowedIntegrationIds
             );
 
           // Same server-side validation as the dashboard / public API
@@ -173,34 +186,42 @@ If the tools return errors, you would need to rerun it with the right parameters
 
           if (validation.emptyContent) {
             return {
-              errors: `${validation.name}: Your post should have at least one character or one image.`,
+              output: {
+                errors: `${validation.name}: Your post should have at least one character or one image.`,
+              },
             };
           }
 
           if (platform.type !== 'draft') {
             if (!validation.valid) {
               return {
-                errors: `${validation.name}: ${
-                  validation.settingsError || 'Please fix your settings'
-                }, please fix it, and try integrationSchedulePostTool again.`,
+                output: {
+                  errors: `${validation.name}: ${
+                    validation.settingsError || 'Please fix your settings'
+                  }, please fix it, and try integrationSchedulePostTool again.`,
+                },
               };
             }
 
             if (validation.errors !== true) {
               return {
-                errors: `${validation.name}: ${validation.errors}, please fix it, and try integrationSchedulePostTool again.`,
+                output: {
+                  errors: `${validation.name}: ${validation.errors}, please fix it, and try integrationSchedulePostTool again.`,
+                },
               };
             }
 
             if (validation.tooLong) {
               return {
-                errors: `${validation.name}: The maximum characters is ${validation.maximumCharacters}, please fix it, and try integrationSchedulePostTool again.`,
+                output: {
+                  errors: `${validation.name}: The maximum characters is ${validation.maximumCharacters}, please fix it, and try integrationSchedulePostTool again.`,
+                },
               };
             }
           }
         }
 
-        for (const post of inputData.socialPost) {
+        for (const post of context.socialPost) {
           const integration = integrations[post.integrationId];
 
           if (!integration) {
@@ -236,7 +257,7 @@ If the tools return errors, you would need to rerun it with the right parameters
                 })),
               },
             ],
-          }, 'MCP');
+          }, 'MCP', allowedIntegrationIds);
           finalOutput.push(...output);
         }
 

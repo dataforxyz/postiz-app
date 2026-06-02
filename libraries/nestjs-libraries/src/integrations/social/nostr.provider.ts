@@ -12,6 +12,7 @@ import { getPublicKey, Relay, finalizeEvent, SimplePool } from 'nostr-tools';
 import WebSocket from 'ws';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import { Integration } from '@prisma/client';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 // @ts-ignore
 global.WebSocket = WebSocket;
@@ -232,5 +233,24 @@ export class NostrProvider extends SocialAbstract implements SocialProvider {
         status: 'completed',
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'nostr',
+      textMaxChars: 100000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Source maxLength reports 100000 (effectively unlimited); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

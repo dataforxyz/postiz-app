@@ -13,6 +13,7 @@ import FormDataNew from 'form-data';
 import mime from 'mime-types';
 import { Integration } from '@prisma/client';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class VkProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 2; // VK has moderate API limits
@@ -308,5 +309,24 @@ export class VkProvider extends SocialAbstract implements SocialProvider {
         status: 'completed',
       },
     ];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'vk',
+      textMaxChars: 2048,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

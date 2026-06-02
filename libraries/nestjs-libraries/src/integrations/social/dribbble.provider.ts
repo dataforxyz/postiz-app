@@ -16,6 +16,7 @@ import { DribbbleDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-sett
 import mime from 'mime-types';
 import { DiscordDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/discord.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class DribbbleProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3; // Dribbble has moderate API limits
@@ -221,5 +222,24 @@ export class DribbbleProvider extends SocialAbstract implements SocialProvider {
   ): Promise<AnalyticsData[]> {
     // Dribbble doesn't provide detailed post-level analytics via their API
     return [];
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'dribbble',
+      textMaxChars: 40000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['image', 'video'],
+      maxImages: 1,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Shots only; shot title — no Postiz-side limit enforced; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

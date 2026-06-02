@@ -18,6 +18,7 @@ import WebSocket from 'ws';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Integration } from '@prisma/client';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 // @ts-ignore
 global.WebSocket = WebSocket;
@@ -509,6 +510,25 @@ export class RedditProvider extends SocialAbstract implements SocialProvider {
           id: p.id,
           name: p.text,
         })) || [],
+    };
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'reddit',
+      textMaxChars: 10000,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image', 'video'],
+      maxImages: 1,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['requires_subreddit'],
+      textFormat: 'plain',
+      notes: 'Per-subreddit flair; multi-subreddit cross-post; submission title has no Postiz-side limit (Reddit platform limit is 300 chars); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

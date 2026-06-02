@@ -4,6 +4,7 @@ import { ApiModule } from '@gitroom/backend/api/api.module';
 import { APP_GUARD } from '@nestjs/core';
 import { PoliciesGuard } from '@gitroom/backend/services/auth/permissions/permissions.guard';
 import { PublicApiModule } from '@gitroom/backend/public-api/public.api.module';
+import { AdminApiModule } from '@gitroom/backend/public-api/routes/v1/admin/admin.module';
 import { ThrottlerBehindProxyGuard } from '@gitroom/nestjs-libraries/throttler/throttler.provider';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AgentModule } from '@gitroom/nestjs-libraries/agent/agent.module';
@@ -25,6 +26,7 @@ import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
     DatabaseModule,
     ApiModule,
     PublicApiModule,
+    AdminApiModule,
     AgentModule,
     ThirdPartyModule,
     VideoModule,

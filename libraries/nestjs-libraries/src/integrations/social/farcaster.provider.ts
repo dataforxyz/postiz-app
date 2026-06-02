@@ -15,6 +15,7 @@ import { Integration } from '@prisma/client';
 import { FarcasterDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/farcaster.dto';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 const client = new NeynarAPIClient({
   apiKey: process.env.NEYNAR_SECRET_KEY || '00000000-000-0000-000-000000000000',
@@ -106,10 +107,9 @@ export class FarcasterProvider
 
     for (const channel of channels) {
       const data = await client.publishCast({
-        embeds:
-          firstPost?.media?.map((media) => ({
-            url: media.path,
-          })) || [],
+        embeds: (firstPost?.media?.map((media) => ({
+          url: media.path,
+        })) || []) as any,
         signerUuid: accessToken,
         text: firstPost.message,
         ...(channel?.value?.id ? { channelId: channel?.value?.id } : {}),
@@ -148,10 +148,9 @@ export class FarcasterProvider
 
     for (const parentHash of parentIds) {
       const data = await client.publishCast({
-        embeds:
-          commentPost?.media?.map((media) => ({
-            url: media.path,
-          })) || [],
+        embeds: (commentPost?.media?.map((media) => ({
+          url: media.path,
+        })) || []) as any,
         signerUuid: accessToken,
         text: commentPost.message,
         parent: parentHash,
@@ -196,5 +195,24 @@ export class FarcasterProvider
         id: p.id,
       };
     });
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'wrapcast',
+      textMaxChars: 800,
+      textMaxCharsPremium: null,
+      titleMaxChars: null,
+      mediaKinds: ['text', 'image'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: [],
+      textFormat: 'plain',
+      notes: 'Identifier in Postiz source is wrapcast, not farcaster; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }

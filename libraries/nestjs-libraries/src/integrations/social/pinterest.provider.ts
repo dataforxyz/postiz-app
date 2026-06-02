@@ -19,6 +19,7 @@ import dayjs from 'dayjs';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
+import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 @Rules(
   'Pinterest requires at least one media, if posting a video, you must have two attachment, one for video, one for the cover picture, When posting a video, there can be only one, if posting images, there can be maximum 5'
@@ -507,5 +508,24 @@ export class PinterestProvider
       console.error('Error fetching Pinterest post analytics:', err);
       return [];
     }
+  }
+
+  capabilities(): IntegrationCapabilities {
+    return {
+      identifier: 'pinterest',
+      textMaxChars: 500,
+      textMaxCharsPremium: null,
+      titleMaxChars: 100,
+      mediaKinds: ['image', 'video'],
+      maxImages: null,
+      maxImageBytes: null,
+      maxVideoSeconds: null,
+      maxVideoSecondsDynamic: false,
+      aspectRatios: [],
+      allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
+      flags: ['requires_cover_image', 'requires_board'],
+      textFormat: 'plain',
+      notes: 'Video pins require a separate cover image; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+    };
   }
 }
