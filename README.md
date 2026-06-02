@@ -163,7 +163,7 @@ scripts/open_pr.sh \
   --head <branch-name> \
   --title "<pr title>" \
   --body "Closes #<issue>" \
-  --base preview \
+  --base main \
   --skip-verify
 ```
 
