@@ -4,7 +4,7 @@ This repo keeps feature work and PR integration on Forgejo, but deployable Posti
 
 ## Target flow
 
-1. Work happens on Forgejo feature branches against `dev/all-open-prs-preview`.
+1. Work happens on Forgejo feature branches against `main`.
 2. The integrator merges preview/release work to `main`.
 3. `main` is mirrored to GitHub.
 4. GitHub Actions runs the `Build` workflow for `main`.
