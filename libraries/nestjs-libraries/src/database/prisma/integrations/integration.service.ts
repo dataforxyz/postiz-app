@@ -155,6 +155,13 @@ export class IntegrationService {
     );
   }
 
+  getIntegrationHealthList(org: string, allowedIds?: string[]) {
+    return this._integrationRepository.getIntegrationHealthList(
+      org,
+      allowedIds
+    );
+  }
+
   getIntegrationForOrder(id: string, order: string, user: string, org: string) {
     return this._integrationRepository.getIntegrationForOrder(
       id,
