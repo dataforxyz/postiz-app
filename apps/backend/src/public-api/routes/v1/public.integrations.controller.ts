@@ -211,8 +211,7 @@ export class PublicIntegrationsController {
         body.posts.some((p) =>
           p.value.some((a) =>
             a.image.some(
-              (i) =>
-                i.path.indexOf(process.env.RESTRICT_UPLOAD_DOMAINS!) === -1
+              (i) => i.path.indexOf(process.env.RESTRICT_UPLOAD_DOMAINS!) === -1
             )
           )
         )
@@ -375,25 +374,24 @@ export class PublicIntegrationsController {
       }));
   }
 
-  @Get('/internal/integrations')
+  @Get('/integrations/health')
   @RequiresTokenPermission('read')
-  async listInternalIntegrations(
+  async listIntegrationHealth(
     @GetOrgFromRequest() org: Organization,
     @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    const integrations = await this._integrationService.getInternalIntegrationsList(
-      org.id,
-      getAllowedIntegrationIds(req as any)
-    );
+    const integrations =
+      await this._integrationService.getIntegrationHealthList(
+        org.id,
+        getAllowedIntegrationIds(req as any)
+      );
 
     return {
       integrations: integrations.map((integration) => ({
         id: integration.id,
         name: integration.name,
         provider: integration.providerIdentifier,
-        token: integration.token,
-        refreshToken: integration.refreshToken,
         internalId: integration.internalId,
         profile: integration.profile,
         picture: integration.picture,
@@ -411,6 +409,16 @@ export class PublicIntegrationsController {
         }),
       })),
     };
+  }
+
+  @Get('/posts/status')
+  @RequiresTokenPermission('read')
+  async getPostsStatus(
+    @GetOrgFromRequest() org: Organization,
+    @Query('ids') ids: string,
+    @Req() req: Request
+  ) {
+    return this.getInternalPostsStatus(org, ids, req);
   }
 
   @Get('/internal/posts/status')
@@ -441,6 +449,28 @@ export class PublicIntegrationsController {
         ),
       })),
     };
+  }
+
+  @Get('/posts/by-integration-window')
+  @RequiresTokenPermission('read')
+  async getPostsByIntegrationWindow(
+    @GetOrgFromRequest() org: Organization,
+    @Query('integrationIds') integrationIds: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('states') states: string,
+    @Query('limit') limit: string,
+    @Req() req: Request
+  ) {
+    return this.getInternalPostsByIntegrationWindow(
+      org,
+      integrationIds,
+      startDate,
+      endDate,
+      states,
+      limit,
+      req
+    );
   }
 
   @Get('/internal/posts/by-integration-window')
@@ -478,6 +508,26 @@ export class PublicIntegrationsController {
         getAllowedIntegrationIds(req as any)
       ),
     };
+  }
+
+  @Get('/posts/history')
+  @RequiresTokenPermission('read')
+  async getPostsHistory(
+    @GetOrgFromRequest() org: Organization,
+    @Query('integrationIds') integrationIds: string,
+    @Query('since') since: string,
+    @Query('until') until: string,
+    @Query('limit') limit: string,
+    @Req() req: Request
+  ) {
+    return this.getInternalPostsHistory(
+      org,
+      integrationIds,
+      since,
+      until,
+      limit,
+      req
+    );
   }
 
   @Get('/internal/posts/history')
@@ -611,7 +661,9 @@ export class PublicIntegrationsController {
     );
     if (isTherePosts.length) {
       for (const post of isTherePosts) {
-        this._postsService.deletePost(org.id, post.group, allowedIds).catch(() => {});
+        this._postsService
+          .deletePost(org.id, post.group, allowedIds)
+          .catch(() => {});
       }
     }
 
