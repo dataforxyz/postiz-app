@@ -1057,10 +1057,14 @@ export class PostsService {
   async changePostStatus(
     orgId: string,
     id: string,
-    status: 'draft' | 'schedule'
+    status: 'draft' | 'schedule',
+    allowedIntegrationIds?: string[]
   ) {
     const getPostById = await this._postRepository.getPostById(id, orgId);
-    if (!getPostById) {
+    if (
+      !getPostById ||
+      !isIntegrationAllowed(allowedIntegrationIds, getPostById.integrationId)
+    ) {
       throw new BadRequestException('Post not found');
     }
 

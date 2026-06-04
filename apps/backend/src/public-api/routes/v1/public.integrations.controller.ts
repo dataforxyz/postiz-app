@@ -277,6 +277,10 @@ export class PublicIntegrationsController {
         getAllowedIntegrationIds(req as any)
       );
     } catch (err: any) {
+      if (err instanceof PostValidationException) {
+        throw err;
+      }
+
       const message =
         err?.response?.message ||
         err?.message ||
@@ -681,13 +685,20 @@ export class PublicIntegrationsController {
   }
 
   @Put('/posts/:id/status')
+  @RequiresTokenPermission('write')
   async changePostStatus(
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string,
-    @Body() body: ChangePostStatusDto
+    @Body() body: ChangePostStatusDto,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
-    return this._postsService.changePostStatus(org.id, id, body.status);
+    return this._postsService.changePostStatus(
+      org.id,
+      id,
+      body.status,
+      getAllowedIntegrationIds(req as any)
+    );
   }
 
   @Put('/posts/:id/release-id')
