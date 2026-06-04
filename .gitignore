@@ -53,6 +53,7 @@ Thumbs.db
 *.orig
 *.~*~
 *.tsbuildinfo
+patches/
 
 # ignore Secrets folder
 .secrets/
