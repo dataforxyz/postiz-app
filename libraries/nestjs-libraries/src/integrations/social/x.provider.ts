@@ -848,7 +848,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
   capabilities(): IntegrationCapabilities {
     return {
       identifier: 'x',
-      textMaxChars: 200,
+      textMaxChars: 280,
       textMaxCharsPremium: 4000,
       titleMaxChars: null,
       mediaKinds: ['text', 'image', 'video', 'gif', 'carousel'],
@@ -860,7 +860,7 @@ export class XProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['supports_threads', 'supports_reply_restriction'],
       textFormat: 'plain',
-      notes: 'Postiz hard-codes 200/4000, not X native 280/25000; allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+      notes: 'Postiz enforces 280/4000 via maxLength() (not X native 280/25000); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }
