@@ -26,8 +26,9 @@ jobs:
   promote-image:
     runs-on: ubuntu-latest
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref_type == 'tag' && (github.ref_name == 'staging' || github.ref_name == 'prod'))
+      github.server_url == 'https://github.com' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref_type == 'tag' && (github.ref_name == 'staging' || github.ref_name == 'prod')))
     env:
       IMAGE_NAME: ${{ vars.IMAGE_NAME }}
     steps:

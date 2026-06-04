@@ -23,9 +23,10 @@ permissions:
 jobs:
   publish-image-common:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success')
+      github.server_url == 'https://github.com' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
     outputs:
       full_sha: ${{ steps.meta.outputs.full_sha }}
@@ -55,6 +56,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   build-containers:
+    if: github.server_url == 'https://github.com'
     needs: publish-image-common
     strategy:
       matrix:
@@ -98,6 +100,7 @@ jobs:
             .
 
   build-container-manifest:
+    if: github.server_url == 'https://github.com'
     needs: [publish-image-common, build-containers]
     runs-on: ubuntu-latest
     steps:
