@@ -7,7 +7,7 @@ on:
 
 jobs:
   closed-public-website:
-    if: github.event.label.name == 'trigger-public-website'
+    if: github.server_url == 'https://github.com' && github.event.label.name == 'trigger-public-website'
     runs-on: ubuntu-latest
     permissions:
       issues: write

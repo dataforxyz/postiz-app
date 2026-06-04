@@ -1,0 +1,28 @@
+name: FGit Sync Check
+
+on:
+  push:
+    branches:
+      - main
+      - dev/all-open-prs-preview
+  pull_request:
+    branches:
+      - main
+      - dev/all-open-prs-preview
+
+concurrency:
+  group: postiz-app-fgit-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  sync-check:
+    name: FGit Sync Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirm checkout
+        run: |
+          git status --short
+          git rev-parse --short HEAD
