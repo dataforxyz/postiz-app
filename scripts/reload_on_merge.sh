@@ -19,7 +19,7 @@ PREVIEW_BRANCH="dev/all-open-prs-preview"
 POSTIZ_LOG="${POSTIZ_LOG:-/home/dev/src/fgit.datafor.xyz/datafor/juston-app/runtime/logs/postiz.log}"
 JUSTON_DIR="/home/dev/src/fgit.datafor.xyz/datafor/juston-app"
 
-SMOKE_PATHS=(/ /public/v1/internal/integrations)
+SMOKE_PATHS=(/ /public/v1/integrations/health)
 
 if [[ ! -f "$FLAG" ]]; then
     exit 0
