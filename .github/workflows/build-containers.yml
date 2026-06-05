@@ -2,9 +2,6 @@
 name: Publish Image
 
 on:
-  push:
-    tags:
-      - "*"
   workflow_dispatch:
     inputs:
       source_ref:
@@ -12,7 +9,7 @@ on:
         required: false
 
 concurrency:
-  group: postiz-app-publish-${{ github.ref }}
+  group: postiz-app-publish-${{ github.event.inputs.source_ref || github.ref }}
   cancel-in-progress: false
 
 permissions:
