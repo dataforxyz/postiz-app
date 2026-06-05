@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: postiz-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
     if: github.server_url == 'https://github.com'
