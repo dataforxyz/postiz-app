@@ -11,13 +11,6 @@ on:
       - '!apps/docs/**'
       - libraries/**
 
-  pull_request:
-    paths:
-      - package.json
-      - apps/**
-      - '!apps/docs/**'
-      - libraries/**
-
 jobs:
   eslint:
     if: github.server_url == 'https://github.com'
