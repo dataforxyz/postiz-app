@@ -9,6 +9,10 @@ on:
       - apps/**
       - '!apps/docs/**'
       - libraries/**
+concurrency:
+  group: postiz-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze:
     if: github.server_url == 'https://github.com'
