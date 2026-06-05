@@ -3,8 +3,11 @@ name: Publish Image
 
 on:
   push:
-    tags:
-      - "*"
+    tags-ignore:
+      - "prod-latest"
+      - "prod-*"
+      - "staging-latest"
+      - "staging-*"
   workflow_dispatch:
     inputs:
       source_ref:
