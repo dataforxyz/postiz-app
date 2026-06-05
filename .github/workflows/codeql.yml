@@ -2,16 +2,13 @@
 name: "Code Quality Analysis"
 
 on:
-  push:
+  pull_request:
     branches:
       - main
     paths:
       - apps/**
       - '!apps/docs/**'
       - libraries/**
-  merge_group:
-
-
 jobs:
   analyze:
     if: github.server_url == 'https://github.com'
