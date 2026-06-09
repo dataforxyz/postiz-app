@@ -50,6 +50,7 @@ services:
       YOUTUBE_CLIENT_SECRET: ''
       TIKTOK_CLIENT_ID: ''
       TIKTOK_CLIENT_SECRET: ''
+      TIKTOK_OAUTH_SCOPES: 'user.info.basic,video.upload,video.publish'
       PINTEREST_CLIENT_ID: ''
       PINTEREST_CLIENT_SECRET: ''
       DRIBBBLE_CLIENT_ID: ''
