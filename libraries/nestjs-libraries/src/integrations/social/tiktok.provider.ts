@@ -14,9 +14,48 @@ import {
 import { TikTokDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/tiktok.dto';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
-import { Integration } from '@prisma/client';
+import type { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
+
+const DEFAULT_TIKTOK_OAUTH_SCOPES = [
+  'user.info.basic',
+  'video.upload',
+  'video.publish',
+];
+
+function configuredTikTokScopes() {
+  const configured = process.env.TIKTOK_OAUTH_SCOPES;
+  if (!configured?.trim()) {
+    return [...DEFAULT_TIKTOK_OAUTH_SCOPES];
+  }
+
+  const scopes = Array.from(
+    new Set(
+      configured
+        .split(/[\s,]+/)
+        .map((scope) => scope.trim())
+        .filter(Boolean)
+    )
+  );
+  return scopes.length > 0 ? scopes : [...DEFAULT_TIKTOK_OAUTH_SCOPES];
+}
+
+function tiktokUserInfoFields(scopes: string[]) {
+  const fields = ['open_id', 'avatar_url', 'display_name', 'union_id'];
+  if (scopes.includes('user.info.profile')) {
+    fields.push('username');
+  }
+  return fields.join(',');
+}
+
+function canReadTikTokStats(scopes: string[]) {
+  return scopes.includes('user.info.stats');
+}
+
+function canReadTikTokVideos(scopes: string[]) {
+  return scopes.includes('video.list');
+}
 
 @Rules(
   'TikTok can have one video or one picture or multiple pictures, it cannot be without an attachment'
@@ -26,14 +65,9 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   name = 'Tiktok';
   isBetweenSteps = false;
   convertToJPEG = true;
-  scopes = [
-    'video.list',
-    'user.info.basic',
-    'video.publish',
-    'video.upload',
-    'user.info.profile',
-    'user.info.stats',
-  ];
+  get scopes() {
+    return configuredTikTokScopes();
+  }
   override maxConcurrentJob = 300;
   dto = TikTokDto;
   editor = 'normal' as const;
@@ -208,7 +242,8 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     if (body.indexOf('url_ownership_unverified') > -1) {
       return {
         type: 'bad-body' as const,
-        value: 'You have to upload the picture/video to Postiz when sending a URL',
+        value:
+          'You have to upload the picture/video to Postiz when sending a URL',
       };
     }
 
@@ -278,6 +313,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
         body: new URLSearchParams(value).toString(),
       })
     ).json();
+    const scopes = this.scopes;
 
     const {
       data: {
@@ -285,7 +321,9 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       },
     } = await (
       await fetch(
-        'https://open.tiktokapis.com/v2/user/info/?fields=open_id,avatar_url,display_name,union_id,username',
+        `https://open.tiktokapis.com/v2/user/info/?fields=${tiktokUserInfoFields(
+          scopes
+        )}`,
         {
           method: 'GET',
           headers: {
@@ -308,6 +346,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
 
   async generateAuthUrl() {
     const state = Math.random().toString(36).substring(2);
+    const scopes = this.scopes;
 
     return {
       url:
@@ -322,7 +361,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
         )}` +
         `&state=${state}` +
         `&response_type=code` +
-        `&scope=${encodeURIComponent(this.scopes.join(','))}`,
+        `&scope=${encodeURIComponent(scopes.join(','))}`,
       codeVerifier: state,
       state,
     };
@@ -346,6 +385,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       }${process?.env?.FRONTEND_URL}/integrations/social/tiktok`,
     };
 
+    const scopes = this.scopes;
     const { access_token, refresh_token, scope } = await (
       await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
         headers: {
@@ -356,7 +396,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       })
     ).json();
 
-    this.checkScopes(this.scopes, scope);
+    this.checkScopes(scopes, scope);
 
     const {
       data: {
@@ -364,7 +404,9 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       },
     } = await (
       await fetch(
-        'https://open.tiktokapis.com/v2/user/info/?fields=open_id,avatar_url,display_name,union_id,username',
+        `https://open.tiktokapis.com/v2/user/info/?fields=${tiktokUserInfoFields(
+          scopes
+        )}`,
         {
           method: 'GET',
           headers: {
@@ -619,56 +661,62 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     date: number
   ): Promise<AnalyticsData[]> {
     const today = dayjs().format('YYYY-MM-DD');
+    const scopes = this.scopes;
+    const result: AnalyticsData[] = [];
 
     try {
-      // Get user stats (follower_count, following_count, likes_count, video_count)
-      const userStatsResponse = await this.fetch(
-        'https://open.tiktokapis.com/v2/user/info/?fields=follower_count,following_count,likes_count,video_count',
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+      if (canReadTikTokStats(scopes)) {
+        // Get user stats (follower_count, following_count, likes_count, video_count)
+        const userStatsResponse = await this.fetch(
+          'https://open.tiktokapis.com/v2/user/info/?fields=follower_count,following_count,likes_count,video_count',
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        const userStatsData = await userStatsResponse.json();
+        const userStats = userStatsData?.data?.user;
+
+        if (userStats) {
+          if (userStats.follower_count !== undefined) {
+            result.push({
+              label: 'Followers',
+              percentageChange: 0,
+              data: [{ total: String(userStats.follower_count), date: today }],
+            });
+          }
+
+          if (userStats.following_count !== undefined) {
+            result.push({
+              label: 'Following',
+              percentageChange: 0,
+              data: [{ total: String(userStats.following_count), date: today }],
+            });
+          }
+
+          if (userStats.likes_count !== undefined) {
+            result.push({
+              label: 'Total Likes',
+              percentageChange: 0,
+              data: [{ total: String(userStats.likes_count), date: today }],
+            });
+          }
+
+          if (userStats.video_count !== undefined) {
+            result.push({
+              label: 'Videos',
+              percentageChange: 0,
+              data: [{ total: String(userStats.video_count), date: today }],
+            });
+          }
         }
-      );
+      }
 
-      const userStatsData = await userStatsResponse.json();
-      const userStats = userStatsData?.data?.user;
-
-      const result: AnalyticsData[] = [];
-
-      if (userStats) {
-        if (userStats.follower_count !== undefined) {
-          result.push({
-            label: 'Followers',
-            percentageChange: 0,
-            data: [{ total: String(userStats.follower_count), date: today }],
-          });
-        }
-
-        if (userStats.following_count !== undefined) {
-          result.push({
-            label: 'Following',
-            percentageChange: 0,
-            data: [{ total: String(userStats.following_count), date: today }],
-          });
-        }
-
-        if (userStats.likes_count !== undefined) {
-          result.push({
-            label: 'Total Likes',
-            percentageChange: 0,
-            data: [{ total: String(userStats.likes_count), date: today }],
-          });
-        }
-
-        if (userStats.video_count !== undefined) {
-          result.push({
-            label: 'Videos',
-            percentageChange: 0,
-            data: [{ total: String(userStats.video_count), date: today }],
-          });
-        }
+      if (!canReadTikTokVideos(scopes)) {
+        return result;
       }
 
       // Get recent videos and aggregate their stats
@@ -758,6 +806,10 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     id: string,
     accessToken: string
   ): Promise<{ id: string; url: string }[]> {
+    if (!canReadTikTokVideos(this.scopes)) {
+      return [];
+    }
+
     try {
       const videoListResponse = await this.fetch(
         'https://open.tiktokapis.com/v2/video/list/?fields=id,cover_image_url,title',
@@ -794,6 +846,10 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     postId: string,
     fromDate: number
   ): Promise<AnalyticsData[]> {
+    if (!canReadTikTokVideos(this.scopes)) {
+      return [];
+    }
+
     const today = dayjs().format('YYYY-MM-DD');
 
     if (postId.indexOf('v_pub_url') > -1) {
@@ -904,7 +960,8 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: [],
       textFormat: 'plain',
-      notes: 'max_video_post_duration_sec fetched per creator from TikTok creator-info; PHOTO mode supports photo_images carousel; .mp4 routes to video upload, others to PHOTO content (tiktok.provider.ts:461,511,549); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+      notes:
+        'max_video_post_duration_sec fetched per creator from TikTok creator-info; PHOTO mode supports photo_images carousel; .mp4 routes to video upload, others to PHOTO content (tiktok.provider.ts:461,511,549); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }
