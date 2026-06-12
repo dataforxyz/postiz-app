@@ -240,11 +240,16 @@ export const ContinueIntegration: FC<{
             errorData.message ||
             errorData.msg ||
             'Failed to save channel configuration';
-          navigateOrShow(
-            `/launches?status=error&message=${encodeURIComponent(errorMsg)}`,
-            twoStepState.returnURL,
-            errorMsg
-          );
+          if (twoStepState.returnURL) {
+            navigateOrShow(
+              `/launches?status=error&message=${encodeURIComponent(errorMsg)}`,
+              twoStepState.returnURL,
+              errorMsg
+            );
+          } else {
+            setErrorMessage(errorMsg);
+            setError(true);
+          }
           return;
         }
 
