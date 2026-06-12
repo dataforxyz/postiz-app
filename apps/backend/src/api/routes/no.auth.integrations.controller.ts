@@ -93,6 +93,11 @@ export class NoAuthIntegrationsController {
       await ioRedis.del(`onboarding:${body.state}`);
     }
 
+    const returnURL = await ioRedis.get(`redirect:${body.state}`);
+    if (returnURL) {
+      await ioRedis.del(`redirect:${body.state}`);
+    }
+
     const {
       error,
       accessToken,
@@ -176,14 +181,29 @@ export class NoAuthIntegrationsController {
     });
 
     if (error) {
+      if (returnURL) {
+        throw new HttpException({ msg: error, returnURL }, 406);
+      }
       throw new NotEnoughScopes(error);
     }
 
     if (!id) {
+      if (returnURL) {
+        throw new HttpException({ msg: 'Invalid API key', returnURL }, 406);
+      }
       throw new NotEnoughScopes('Invalid API key');
     }
 
     if (refresh && String(id) !== String(refresh)) {
+      if (returnURL) {
+        throw new HttpException(
+          {
+            msg: 'Please refresh the channel that needs to be refreshed',
+            returnURL,
+          },
+          406
+        );
+      }
       throw new NotEnoughScopes(
         'Please refresh the channel that needs to be refreshed'
       );
@@ -206,7 +226,7 @@ export class NoAuthIntegrationsController {
         String(id)
       ))
     ) {
-      throw new HttpException('', 412);
+      throw new HttpException(returnURL ? { returnURL } : '', 412);
     }
 
     const createUpdate =
@@ -281,11 +301,6 @@ export class NoAuthIntegrationsController {
       } catch (err) {}
 
       await ioRedis.del(`webhookUrl:${body.state}`);
-    }
-
-    const returnURL = await ioRedis.get(`redirect:${body.state}`);
-    if (returnURL) {
-      await ioRedis.del(`redirect:${body.state}`);
     }
 
     const extensionToken = integrationProvider.isChromeExtension
