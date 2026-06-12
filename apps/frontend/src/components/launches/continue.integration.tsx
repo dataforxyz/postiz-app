@@ -236,10 +236,20 @@ export const ContinueIntegration: FC<{
           response.status !== HttpStatusCode.Created
         ) {
           const errorData = await response.json().catch(() => ({}));
-          setErrorMessage(
-            errorData.message || 'Failed to save channel configuration'
-          );
-          setError(true);
+          const errorMsg =
+            errorData.message ||
+            errorData.msg ||
+            'Failed to save channel configuration';
+          if (twoStepState.returnURL) {
+            navigateOrShow(
+              `/launches?status=error&message=${encodeURIComponent(errorMsg)}`,
+              twoStepState.returnURL,
+              errorMsg
+            );
+          } else {
+            setErrorMessage(errorMsg);
+            setError(true);
+          }
           return;
         }
 
