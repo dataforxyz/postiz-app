@@ -41,6 +41,7 @@ jest.mock('file-type', () => ({
 
 import { PublicIntegrationsController } from './public.integrations.controller';
 import { PostValidationException } from '@gitroom/backend/api/routes/posts.validation.exception';
+import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
 
 describe('PublicIntegrationsController', () => {
   const integrationService = {
@@ -64,6 +65,7 @@ describe('PublicIntegrationsController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.JUSTON_RETURN_URL_ALLOWLIST_HOSTS;
     controller = new PublicIntegrationsController(
       integrationService as any,
       postsService as any,
@@ -72,6 +74,72 @@ describe('PublicIntegrationsController', () => {
       integrationManager as any,
       refreshIntegrationService as any
     );
+  });
+
+  it('stores a validated public social return URL by generated OAuth state', async () => {
+    process.env.JUSTON_RETURN_URL_ALLOWLIST_HOSTS = 'juston.example.test';
+    const generateAuthUrl = jest.fn().mockResolvedValue({
+      codeVerifier: 'code-verifier',
+      state: 'postiz-oauth-state',
+      url: 'https://provider.example/oauth',
+    });
+    (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
+      'instagram',
+    ]);
+    (integrationManager as any).getSocialIntegration = jest.fn(() => ({
+      generateAuthUrl,
+    }));
+    (ioRedis as any).set = jest.fn().mockResolvedValue('OK');
+
+    const result = await controller.getIntegrationUrl(
+      'instagram',
+      '',
+      'https://juston.example.test/channels/connect/return?provider=instagram',
+      'signed-juston-state',
+      { id: 'org-1' } as any
+    );
+
+    expect(result).toEqual({ url: 'https://provider.example/oauth' });
+    expect((ioRedis as any).set).toHaveBeenCalledWith(
+      'redirect:postiz-oauth-state',
+      'https://juston.example.test/channels/connect/return?provider=instagram&state=signed-juston-state',
+      'EX',
+      3600
+    );
+    expect((ioRedis as any).set).toHaveBeenCalledWith(
+      'organization:postiz-oauth-state',
+      'org-1',
+      'EX',
+      3600
+    );
+    expect((ioRedis as any).set).toHaveBeenCalledWith(
+      'login:postiz-oauth-state',
+      'code-verifier',
+      'EX',
+      3600
+    );
+  });
+
+  it('rejects public social return URLs outside the allowlist', async () => {
+    (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
+      'instagram',
+    ]);
+    (integrationManager as any).getSocialIntegration = jest.fn(() => ({
+      generateAuthUrl: jest.fn(),
+    }));
+
+    await expect(
+      controller.getIntegrationUrl(
+        'instagram',
+        '',
+        'https://evil.example/channels/connect/return',
+        'signed-juston-state',
+        { id: 'org-1' } as any
+      )
+    ).rejects.toMatchObject({
+      response: { msg: 'return_url host not allowed' },
+      status: 400,
+    });
   });
 
   it('requires write permission for public post status changes', () => {

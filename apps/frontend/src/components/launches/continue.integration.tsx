@@ -23,6 +23,14 @@ interface SuccessState {
   message: string;
 }
 
+function appendReturnParams(returnURL: string, path: string) {
+  const params = path.includes('?') ? path.split('?')[1] : '';
+  if (!params) {
+    return returnURL;
+  }
+  return `${returnURL}${returnURL.includes('?') ? '&' : '?'}${params}`;
+}
+
 export const ContinueIntegration: FC<{
   provider: string;
   searchParams: any;
@@ -44,8 +52,7 @@ export const ContinueIntegration: FC<{
     (path: string, returnURL: string | undefined, successMessage: string) => {
       if (returnURL) {
         // If returnURL exists, always redirect to it with the path params
-        const params = path.includes('?') ? path.split('?')[1] : '';
-        push(params ? `${returnURL}?${params}` : returnURL);
+        push(appendReturnParams(returnURL, path));
       } else if (logged) {
         // If logged in without returnURL, use normal navigation
         push(path);
@@ -131,7 +138,12 @@ export const ContinueIntegration: FC<{
 
       if (data.status === HttpStatusCode.NotAcceptable) {
         const { msg, returnURL } = await data.json();
-        navigateOrShow(`/launches?msg=${msg}`, returnURL, msg);
+        const errorMsg = msg || 'Could not add provider';
+        navigateOrShow(
+          `/launches?status=error&message=${encodeURIComponent(errorMsg)}`,
+          returnURL,
+          errorMsg
+        );
         return;
       }
 

@@ -74,6 +74,41 @@ import {
   enrichPostErrorField,
 } from '@gitroom/nestjs-libraries/integrations/postiz-auth-contract';
 
+const LOCAL_RETURN_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+function allowedReturnHosts() {
+  return new Set(
+    (process.env.JUSTON_RETURN_URL_ALLOWLIST_HOSTS || '')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function validatePublicReturnUrl(returnUrl?: string, returnState?: string) {
+  if (!returnUrl) {
+    return undefined;
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(returnUrl);
+  } catch {
+    throw new HttpException({ msg: 'Invalid return_url' }, 400);
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new HttpException({ msg: 'Invalid return_url protocol' }, 400);
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  const allowed = allowedReturnHosts();
+  if (!LOCAL_RETURN_HOSTS.has(hostname) && !allowed.has(hostname)) {
+    throw new HttpException({ msg: 'return_url host not allowed' }, 400);
+  }
+  if (returnState && !parsed.searchParams.has('state')) {
+    parsed.searchParams.set('state', returnState);
+  }
+  return parsed.toString();
+}
+
 @ApiTags('Public API')
 @Controller('/public/v1')
 @UseGuards(ScopeGuard)
@@ -571,6 +606,8 @@ export class PublicIntegrationsController {
   async getIntegrationUrl(
     @Param('integration') integration: string,
     @Query('refresh') refresh: string,
+    @Query('return_url') returnUrl: string,
+    @Query('state') returnState: string,
     @GetOrgFromRequest() org: Organization
   ) {
     Sentry.metrics.count('public_api-request', 1);
@@ -594,12 +631,18 @@ export class PublicIntegrationsController {
       );
     }
 
+    const validatedReturnUrl = validatePublicReturnUrl(returnUrl, returnState);
+
     try {
       const { codeVerifier, state, url } =
         await integrationProvider.generateAuthUrl();
 
       if (refresh) {
         await ioRedis.set(`refresh:${state}`, refresh, 'EX', 3600);
+      }
+
+      if (validatedReturnUrl) {
+        await ioRedis.set(`redirect:${state}`, validatedReturnUrl, 'EX', 3600);
       }
 
       await ioRedis.set(`organization:${state}`, org.id, 'EX', 3600);
