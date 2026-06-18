@@ -23,6 +23,7 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
+import { createPostizCallbackJwt } from '@gitroom/backend/api/routes/postiz.callback-jwt';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -288,19 +289,23 @@ export class NoAuthIntegrationsController {
 
     const webhookUrl = await ioRedis.get(`webhookUrl:${body.state}`);
     if (webhookUrl) {
+      const callbackEventId =
+        (await ioRedis.get(`webhookEventId:${body.state}`)) || body.state;
       try {
         await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            params: AuthService.signJWT({
+            params: createPostizCallbackJwt({
               apiKey: org.apiKey,
+              jti: callbackEventId,
             }),
           }),
         });
       } catch (err) {}
 
       await ioRedis.del(`webhookUrl:${body.state}`);
+      await ioRedis.del(`webhookEventId:${body.state}`);
     }
 
     const extensionToken = integrationProvider.isChromeExtension

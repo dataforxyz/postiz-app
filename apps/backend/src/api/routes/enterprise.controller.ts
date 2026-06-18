@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Body, Controller, Param, Post, Res } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
@@ -82,7 +83,15 @@ export class EnterpriseController {
         await ioRedis.set(`refresh:${state}`, load.refreshId, 'EX', 3600);
       }
 
-      await ioRedis.set(`webhookUrl:${state}`, load.webhookUrl, 'EX', 3600);
+      if (load.webhookUrl) {
+        await ioRedis.set(`webhookUrl:${state}`, load.webhookUrl, 'EX', 3600);
+        await ioRedis.set(
+          `webhookEventId:${state}`,
+          randomUUID(),
+          'EX',
+          3600
+        );
+      }
       await ioRedis.set(`redirect:${state}`, load.redirectUrl, 'EX', 3600);
       await ioRedis.set(`organization:${state}`, org.id, 'EX', 3600);
       await ioRedis.set(`login:${state}`, codeVerifier, 'EX', 3600);
