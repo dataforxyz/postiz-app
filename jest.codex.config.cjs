@@ -25,6 +25,7 @@ module.exports = {
     '<rootDir>/libraries/nestjs-libraries/src/database/prisma/organizations/admin.repository.spec.ts',
     '<rootDir>/libraries/nestjs-libraries/src/integrations/postiz-auth-contract.spec.ts',
     '<rootDir>/libraries/nestjs-libraries/src/integrations/social/tiktok.provider.spec.ts',
+    '<rootDir>/libraries/nestjs-libraries/src/integrations/social/youtube.provider.spec.ts',
   ],
   moduleNameMapper: {
     '^@gitroom/nestjs-libraries/(.*)$':
