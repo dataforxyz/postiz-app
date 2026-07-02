@@ -5,6 +5,7 @@ interface VariableContextInterface {
   stripeClient: string;
   billingEnabled: boolean;
   isChatBase: boolean;
+  chatbaseBotId: string;
   isGeneral: boolean;
   genericOauth: boolean;
   oauthLogoUrl: string;
@@ -39,6 +40,7 @@ const VariableContext = createContext({
   isGeneral: true,
   genericOauth: false,
   isChatBase: false,
+  chatbaseBotId: '',
   oauthLogoUrl: '',
   googleAdsId: '',
   googleAdsTrialTracking: '',

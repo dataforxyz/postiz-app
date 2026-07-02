@@ -21,19 +21,20 @@ export const WordpressTerms: FC<{
   }) => void;
 }> = (props) => {
   const { name, label, func, onChange } = props;
-  const customFunc = useCustomProviderFunction();
+  const { get } = useCustomProviderFunction();
   const form = useSettings();
   const { getValues } = form;
   const [terms, setTerms] = useState<Array<{ id: number; name: string }>>([]);
-  const [selected, setSelected] = useState<Array<string | number>>([]);
+  const [selected, setSelected] = useState<Array<string | number>>(() => {
+    const settings = getValues()[name];
+    return Array.isArray(settings)
+      ? settings.map((value: any) => Number(value))
+      : [];
+  });
 
   useEffect(() => {
-    customFunc.get(func).then((data) => setTerms(data || []));
-    const settings = getValues()[name];
-    if (Array.isArray(settings)) {
-      setSelected(settings.map((value: any) => Number(value)));
-    }
-  }, []);
+    get(func).then((data) => setTerms(data || []));
+  }, [get, func]);
 
   const onChangeInner = (value: Array<string | number>) => {
     const numbers = value.map((current) => Number(current));

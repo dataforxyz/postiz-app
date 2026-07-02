@@ -48,7 +48,10 @@ export const InstagramAudioSelector: FC<{
   const t = useT();
   const { getValues } = useSettings();
   const customFunc = useCustomProviderFunction();
-  const [value, setValue] = useState<SelectedAudio | undefined>();
+  const [value, setValue] = useState<SelectedAudio | undefined>(() => {
+    const settings = getValues()[name];
+    return settings?.id ? settings : undefined;
+  });
   const [open, setOpen] = useState(false);
   const [audioType, setAudioType] = useState<'music' | 'original_sound'>(
     'music'
@@ -58,13 +61,6 @@ export const InstagramAudioSelector: FC<{
   const [loading, setLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string>('');
   const player = useRef<HTMLAudioElement | undefined>(undefined);
-
-  useEffect(() => {
-    const settings = getValues()[name];
-    if (settings?.id) {
-      setValue(settings);
-    }
-  }, []);
 
   const stopPreview = useCallback(() => {
     player.current?.pause();
@@ -92,8 +88,8 @@ export const InstagramAudioSelector: FC<{
       return;
     }
     let cancelled = false;
-    setLoading(true);
     const search = setTimeout(async () => {
+      setLoading(true);
       try {
         const list = await customFunc.get('audioSearch', {
           q: query,

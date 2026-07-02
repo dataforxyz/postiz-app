@@ -25,7 +25,7 @@ export class BillingController {
   }
 
   private assertChatbaseRefundAllowed(user: User, org: Organization) {
-    if (!process.env.CHATBASE_TOKEN) {
+    if (!process.env.CHATBASE_TOKEN || !process.env.CHATBASE_BOT_ID) {
       throw new HttpException('Chatbase SSO is not configured', 400);
     }
 

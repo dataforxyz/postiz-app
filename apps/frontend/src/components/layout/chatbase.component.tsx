@@ -13,13 +13,13 @@ import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import useSWR from 'swr';
 
 export const ChatbaseComponent: FC = () => {
-  const { isChatBase } = useVariables();
-  if (!isChatBase) {
+  const { isChatBase, chatbaseBotId } = useVariables();
+  if (!isChatBase || !chatbaseBotId) {
     return null;
   }
-  return <ChatbaseComponentLoad />;
+  return <ChatbaseComponentLoad botId={chatbaseBotId} />;
 };
-export const ChatbaseComponentLoad: FC = () => {
+export const ChatbaseComponentLoad: FC<{ botId: string }> = ({ botId }) => {
   const fetch = useFetch();
 
   const { data } = useSWR(
@@ -42,13 +42,22 @@ export const ChatbaseComponentLoad: FC = () => {
   }
 
   return (
-    <ChatBaseCode token={data.token} canManageBilling={data.canManageBilling} />
+    <ChatBaseCode
+      token={data.token}
+      canManageBilling={data.canManageBilling}
+      botId={botId}
+    />
   );
 };
 
-const ChatBaseCode: FC<{ token: string; canManageBilling: boolean }> = ({
+const ChatBaseCode: FC<{
+  token: string;
+  canManageBilling: boolean;
+  botId: string;
+}> = ({
   token,
   canManageBilling,
+  botId,
 }) => {
   const fetch = useFetch();
 
@@ -74,7 +83,7 @@ const ChatBaseCode: FC<{ token: string; canManageBilling: boolean }> = ({
     const onLoad = function () {
       const script = document.createElement('script');
       script.src = 'https://www.chatbase.co/embed.min.js';
-      script.id = '1zVZuOz0vgFE_NLumfPPj';
+      script.id = botId;
       // @ts-ignore
       script.domain = 'www.chatbase.co';
       document.body.appendChild(script);
@@ -157,6 +166,6 @@ const ChatBaseCode: FC<{ token: string; canManageBilling: boolean }> = ({
         }
       },
     });
-  }, [canManageBilling, fetch, token]);
+  }, [botId, canManageBilling, fetch, token]);
   return null;
 };

@@ -411,6 +411,7 @@ export const AddProviderComponent: FC<{
   const router = useRouter();
   const fetch = useFetch();
   const modal = useModals();
+  const t = useT();
   const getSocialLink = useCallback(
     (
         invite: boolean,
@@ -664,10 +665,8 @@ export const AddProviderComponent: FC<{
         }
         await gotoIntegration();
       },
-    [onboarding]
+    [fetch, isMobile, modal, onboarding, router, t, toaster]
   );
-
-  const t = useT();
 
   return (
     <div className="w-full flex flex-col gap-[20px] rounded-[4px] relative]">

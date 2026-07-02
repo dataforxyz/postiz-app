@@ -52,7 +52,7 @@ export class UsersController {
     @GetUserFromRequest() user: User,
     @GetOrgFromRequest() organization: Organization
   ) {
-    if (!process.env.CHATBASE_TOKEN) {
+    if (!process.env.CHATBASE_TOKEN || !process.env.CHATBASE_BOT_ID) {
       throw new HttpException('Chatbase SSO is not configured', 400);
     }
 

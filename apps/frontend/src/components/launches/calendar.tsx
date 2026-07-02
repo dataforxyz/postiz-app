@@ -106,8 +106,8 @@ const usePostActions = (onMutate?: () => void) => {
     onMutate?.();
   }, [reloadCalendarView, onMutate]);
 
-  const editPost = useCallback(
-    (loadPost: any, isDuplicate?: boolean) => async () => {
+  function editPost(loadPost: any, isDuplicate?: boolean) {
+    return async () => {
       const post = {
         ...loadPost,
         publishDate: loadPost.actualDate || loadPost.publishDate,
@@ -169,9 +169,8 @@ const usePostActions = (onMutate?: () => void) => {
         size: '80%',
         title: ``,
       });
-    },
-    [integrations, fetch, modal, mutate]
-  );
+    };
+  }
 
   const copyDebugJson = useCallback(
     (post: any) => () => {
