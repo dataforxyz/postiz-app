@@ -450,12 +450,13 @@ export class StripeService {
     }
 
     const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const trialStart = allowTrial ? '&trialStart=true' : '';
     const { client_secret } = await stripe.checkout.sessions.create({
       ui_mode: 'custom',
       customer,
       return_url:
         process.env['FRONTEND_URL'] +
-        `/launches?onboarding=true&trialStart=true&check=${uniqueId}${isUtm}`,
+        `/launches?onboarding=true${trialStart}&check=${uniqueId}${isUtm}`,
       mode: 'subscription',
       subscription_data: {
         ...(allowTrial ? { trial_period_days: 7 } : {}),
@@ -501,6 +502,7 @@ export class StripeService {
     allowTrial: boolean
   ) {
     const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const trialStart = allowTrial ? '&trialStart=true' : '';
 
     if (body.dub) {
       await stripe.customers.update(customer, {
@@ -516,7 +518,7 @@ export class StripeService {
       cancel_url: process.env['FRONTEND_URL'] + `/billing?cancel=true${isUtm}`,
       success_url:
         process.env['FRONTEND_URL'] +
-        `/launches?onboarding=true&trialStart=true&check=${uniqueId}${isUtm}`,
+        `/launches?onboarding=true${trialStart}&check=${uniqueId}${isUtm}`,
       mode: 'subscription',
       subscription_data: {
         ...(allowTrial ? { trial_period_days: 7 } : {}),
@@ -949,13 +951,19 @@ export class StripeService {
     }
 
     const customer = org.paymentId;
+    const cancelableSubscriptionStatuses = new Set([
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+    ]);
 
     const subscriptions = (
       await stripe.subscriptions.list({
         customer,
         status: 'all',
       })
-    ).data.filter((f) => f.status !== 'canceled');
+    ).data.filter((f) => cancelableSubscriptionStatuses.has(f.status));
 
     if (!subscriptions.length) {
       return {
@@ -970,13 +978,6 @@ export class StripeService {
         limit: 100,
       })
     ).data.filter((f) => f.status === 'succeeded');
-
-    if (charges.some((f) => f.refunded || f.amount_refunded > 0)) {
-      return {
-        eligible: false as const,
-        reason: 'A refund was already issued for this customer',
-      };
-    }
 
     // only refund a charge that was created by the active subscription,
     // never a one-off payment
@@ -1036,6 +1037,30 @@ export class StripeService {
         ? Math.floor(lastCharge.amount / 12)
         : lastCharge.amount;
 
+    let existingChatbaseRefundId: string | null = null;
+    if (lastCharge.refunded || lastCharge.amount_refunded > 0) {
+      const existingRefund = (
+        await stripe.refunds.list({
+          charge: lastCharge.id,
+          limit: 100,
+        })
+      ).data.find(
+        (refund) =>
+          refund.metadata?.reason === 'chatbase_refund' &&
+          refund.metadata?.organizationId === organizationId &&
+          refund.amount === amount
+      );
+
+      if (!existingRefund) {
+        return {
+          eligible: false as const,
+          reason: 'A refund was already issued for this customer',
+        };
+      }
+
+      existingChatbaseRefundId = existingRefund.id;
+    }
+
     const currentSubscription =
       await this._subscriptionService.getSubscriptionByOrganizationId(
         organizationId
@@ -1049,6 +1074,7 @@ export class StripeService {
       tier: currentSubscription?.subscriptionTier || null,
       period: currentSubscription?.period || null,
       subscriptionIds: subscriptions.map((f) => f.id),
+      existingChatbaseRefundId,
     };
   }
 
@@ -1063,14 +1089,23 @@ export class StripeService {
 
     const org = await this._organizationService.getOrgById(organizationId);
 
-    await stripe.refunds.create({
-      charge: preview.chargeId,
-      amount: Math.round(preview.amount * 100),
-      metadata: {
-        reason: 'chatbase_refund',
-        organizationId,
-      },
-    });
+    const refundAmount = Math.round(preview.amount * 100);
+
+    if (!preview.existingChatbaseRefundId) {
+      await stripe.refunds.create(
+        {
+          charge: preview.chargeId,
+          amount: refundAmount,
+          metadata: {
+            reason: 'chatbase_refund',
+            organizationId,
+          },
+        },
+        {
+          idempotencyKey: `chatbase-refund-${organizationId}-${preview.chargeId}-${refundAmount}`,
+        }
+      );
+    }
 
     for (const subscriptionId of preview.subscriptionIds) {
       await stripe.subscriptions.cancel(subscriptionId);

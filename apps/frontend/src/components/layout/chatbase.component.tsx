@@ -2,13 +2,11 @@
 
 declare global {
   interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     chatbase: any;
   }
 }
 
-import { FC, useCallback, useEffect, useState } from 'react';
-import Script from 'next/script';
+import { FC, useEffect } from 'react';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
@@ -27,9 +25,7 @@ export const ChatbaseComponentLoad: FC = () => {
   const { data } = useSWR(
     'chatbase-token',
     async () => {
-      const { token } = await (await fetch('/user/chatbase-token')).json();
-
-      return token;
+      return (await fetch('/user/chatbase-token')).json();
     },
     {
       revalidateOnFocus: false,
@@ -45,15 +41,19 @@ export const ChatbaseComponentLoad: FC = () => {
     return null;
   }
 
-  return <ChatBaseCode token={data} />;
+  return (
+    <ChatBaseCode token={data.token} canManageBilling={data.canManageBilling} />
+  );
 };
 
-const ChatBaseCode: FC<{ token: string }> = ({ token }) => {
+const ChatBaseCode: FC<{ token: string; canManageBilling: boolean }> = ({
+  token,
+  canManageBilling,
+}) => {
   const fetch = useFetch();
 
   useEffect(() => {
     if (!window.chatbase || window.chatbase('getState') !== 'initialized') {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       window.chatbase = (...arg) => {
         if (!window.chatbase.q) {
@@ -66,7 +66,6 @@ const ChatBaseCode: FC<{ token: string }> = ({ token }) => {
           if (prop === 'q') {
             return target.q;
           }
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
           // @ts-ignore
           return (...args) => target(prop, ...args);
         },
@@ -76,7 +75,6 @@ const ChatBaseCode: FC<{ token: string }> = ({ token }) => {
       const script = document.createElement('script');
       script.src = 'https://www.chatbase.co/embed.min.js';
       script.id = '1zVZuOz0vgFE_NLumfPPj';
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       script.domain = 'www.chatbase.co';
       document.body.appendChild(script);
@@ -89,10 +87,16 @@ const ChatBaseCode: FC<{ token: string }> = ({ token }) => {
 
     window.chatbase('identify', { token });
 
+    if (!canManageBilling) {
+      return;
+    }
+
     window.chatbase('registerTools', {
       stripe_refund: async () => {
         try {
-          const previewResponse = await fetch('/billing/chatbase-refund/preview');
+          const previewResponse = await fetch(
+            '/billing/chatbase-refund/preview'
+          );
 
           if (!previewResponse.ok) {
             return {
@@ -153,6 +157,6 @@ const ChatBaseCode: FC<{ token: string }> = ({ token }) => {
         }
       },
     });
-  }, []);
+  }, [canManageBilling, fetch, token]);
   return null;
 };

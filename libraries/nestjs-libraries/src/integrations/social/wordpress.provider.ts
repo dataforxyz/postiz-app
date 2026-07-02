@@ -187,8 +187,13 @@ export class WordpressProvider
     return {
       refreshToken: '',
       expiresIn: dayjs().add(100, 'years').unix() - dayjs().unix(),
-      accessToken: params.code,
-      id: body.domain + '_' + id,
+      accessToken: Buffer.from(
+        JSON.stringify({
+          ...body,
+          domain,
+        })
+      ).toString('base64'),
+      id: domain + '_' + id,
       name,
       picture: avatar_urls?.[String(biggestImage)] || '',
       username: body.username,

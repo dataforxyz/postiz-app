@@ -19,6 +19,21 @@ export class BillingController {
     private _notificationService: NotificationService
   ) {}
 
+  private canManageBilling(user: User, org: Organization) {
+    const role = (org as any)?.users?.[0]?.role;
+    return user.isSuperAdmin || ['ADMIN', 'SUPERADMIN'].includes(role);
+  }
+
+  private assertChatbaseRefundAllowed(user: User, org: Organization) {
+    if (!process.env.CHATBASE_TOKEN) {
+      throw new HttpException('Chatbase SSO is not configured', 400);
+    }
+
+    if (!this.canManageBilling(user, org)) {
+      throw new HttpException('Unauthorized', 400);
+    }
+  }
+
   @Get('/check/:id')
   async checkId(
     @GetOrgFromRequest() org: Organization,
@@ -134,6 +149,14 @@ export class BillingController {
     return this._stripeService.prorate(org.id, body);
   }
 
+  @Post('/lifetime')
+  async lifetime(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: { code: string }
+  ) {
+    return this._stripeService.lifetimeDeal(org.id, body.code);
+  }
+
   @Get('/charges')
   async getCharges(
     @GetUserFromRequest() user: User,
@@ -172,7 +195,12 @@ export class BillingController {
   }
 
   @Get('/chatbase-refund/preview')
-  chatbaseRefundPreview(@GetOrgFromRequest() org: Organization) {
+  chatbaseRefundPreview(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization
+  ) {
+    this.assertChatbaseRefundAllowed(user, org);
+
     return this._stripeService.chatbaseRefundPreview(org.id);
   }
 
@@ -181,6 +209,8 @@ export class BillingController {
     @GetUserFromRequest() user: User,
     @GetOrgFromRequest() org: Organization
   ) {
+    this.assertChatbaseRefundAllowed(user, org);
+
     const refund = await this._stripeService.chatbaseRefund(org.id);
 
     if (refund.refunded) {

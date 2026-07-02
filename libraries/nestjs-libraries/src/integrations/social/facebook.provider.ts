@@ -617,11 +617,12 @@ export class FacebookProvider extends SocialAbstract implements SocialProvider {
             })
           );
 
-      // Background presets are only valid on text-only posts (no media) and
+      // Background presets are only valid on text-only posts (no media/link) and
       // Facebook caps them at ~130 chars, so we only attach the preset when it
       // can apply.
       const presetId =
         !uploadPhotos?.length &&
+        !firstPost?.settings?.url &&
         firstPost?.settings?.text_format_preset_id &&
         (firstPost.message?.length || 0) <= FACEBOOK_PRESET_MAX_CHARS
           ? firstPost.settings.text_format_preset_id

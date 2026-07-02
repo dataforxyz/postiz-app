@@ -76,6 +76,7 @@ export const FacebookPreview: FC<{
   const preset = useWatch({ control, name: 'text_format_preset_id' }) as
     | string
     | undefined;
+  const url = useWatch({ control, name: 'url' }) as string | undefined;
   const firstText = stripHtmlValidation(
     'normal',
     topValue?.[0]?.content || '',
@@ -84,6 +85,7 @@ export const FacebookPreview: FC<{
   const background =
     !!preset &&
     !topValue?.[0]?.image?.length &&
+    !url?.trim?.() &&
     firstText.length <= FACEBOOK_PRESET_MAX_CHARS
       ? getPresetBackground(preset)
       : undefined;

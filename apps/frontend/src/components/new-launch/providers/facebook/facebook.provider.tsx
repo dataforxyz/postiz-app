@@ -34,13 +34,15 @@ export const FacebookSettings = () => {
   const { value } = useIntegration();
   const postCurrentType = watch('post_type');
   const preset = watch('text_format_preset_id');
+  const url = watch('url');
 
-  // Facebook background presets only render on text-only Page posts (no media).
+  // Facebook background presets only render on text-only Page posts (no media/link).
   const hasMedia = !!value?.some((p) => !!p.image?.length);
-  const presetAvailable = postCurrentType !== 'story' && !hasMedia;
+  const hasLink = !!url?.trim?.();
+  const presetAvailable = postCurrentType !== 'story' && !hasMedia && !hasLink;
   const selectedBg = getPresetBackground(preset);
 
-  // Clear any selected background when it can no longer apply (story / media),
+  // Clear any selected background when it can no longer apply (story / media / link),
   // so a stray combination never reaches the provider.
   useEffect(() => {
     if (!presetAvailable && preset) {

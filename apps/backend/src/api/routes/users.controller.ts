@@ -56,11 +56,17 @@ export class UsersController {
       throw new HttpException('Chatbase SSO is not configured', 400);
     }
 
+    const role = (organization as any)?.users?.[0]?.role;
+    const canManageBilling =
+      user.isSuperAdmin || ['ADMIN', 'SUPERADMIN'].includes(role);
+
     const token = sign(
       {
-        user_id: organization.id,
+        user_id: user.id,
         email: user.email,
-        ...(organization.paymentId
+        organization_id: organization.id,
+        organization_name: organization.name,
+        ...(canManageBilling && organization.paymentId
           ? {
               stripe_accounts: [
                 {
@@ -75,7 +81,7 @@ export class UsersController {
       { expiresIn: '1h' }
     );
 
-    return { token };
+    return { token, canManageBilling };
   }
 
   @Get('/agent-media-sso')

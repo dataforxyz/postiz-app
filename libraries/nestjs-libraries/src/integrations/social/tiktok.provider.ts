@@ -15,9 +15,11 @@ import { TikTokDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settin
 import { timer } from '@gitroom/helpers/utils/timer';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 import { createReadStream, statSync } from 'fs';
+import { join, normalize } from 'node:path';
 import type { Integration } from '@prisma/client';
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
+import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 
 const DEFAULT_TIKTOK_OAUTH_SCOPES = [
   'user.info.basic',
@@ -679,8 +681,8 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   // ---------------------------------------------------------------------------
   // TikTok video chunk constraints: a chunk must be between 5MB and 64MB.
   // When the whole file fits in a single chunk (<= 64MB) we upload it in one
-  // request; otherwise we split it into 10MB chunks (the final chunk carries
-  // the remainder, which TikTok allows to exceed chunk_size).
+  // request; otherwise we split it into 10MB chunks and declare enough chunks
+  // for the final request to carry only the remaining bytes.
   private static readonly TIKTOK_MAX_SINGLE_CHUNK = 64 * 1024 * 1024;
   private static readonly TIKTOK_CHUNK_SIZE = 10 * 1024 * 1024;
 
@@ -692,17 +694,50 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     const chunkSize = TiktokProvider.TIKTOK_CHUNK_SIZE;
     return {
       chunkSize,
-      totalChunkCount: Math.floor(videoSize / chunkSize),
+      totalChunkCount: Math.ceil(videoSize / chunkSize),
     };
+  }
+
+  private tiktokLocalUploadPath(path: string) {
+    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/+$/, '');
+    const uploadDirectory = process.env.UPLOAD_DIRECTORY;
+    if (!frontendUrl || !uploadDirectory) {
+      return null;
+    }
+
+    const localUploadsUrl = `${frontendUrl}/uploads/`;
+    if (!path.startsWith(localUploadsUrl)) {
+      return null;
+    }
+
+    const publicPath = decodeURIComponent(new URL(path).pathname).replace(
+      /^\/uploads\//,
+      ''
+    );
+    const uploadRoot = normalize(uploadDirectory);
+    const resolvedPath = normalize(join(uploadRoot, publicPath));
+    const uploadRootWithSlash = uploadRoot.endsWith('/')
+      ? uploadRoot
+      : `${uploadRoot}/`;
+
+    return resolvedPath.startsWith(uploadRootWithSlash) ? resolvedPath : null;
   }
 
   // Resolves the total byte size of the media without loading it into memory:
   // a HEAD request for remote URLs, statSync for local files.
   private async tiktokMediaSize(path: string): Promise<number> {
+    const localUploadPath = this.tiktokLocalUploadPath(path);
+    if (localUploadPath) {
+      return statSync(localUploadPath).size;
+    }
+
     if (path.indexOf('http') === 0) {
-      const head = await fetch(path, { method: 'HEAD' });
-      const length = head.headers.get('content-length');
-      if (!length) {
+      const head = await fetch(path, {
+        method: 'HEAD',
+        dispatcher: getSsrfSafeDispatcher(),
+      } as any);
+      const length = Number(head.headers.get('content-length'));
+      if (!head.ok || !Number.isFinite(length) || length <= 0) {
         throw new BadBody(
           'tiktok-error-upload',
           '{}',
@@ -710,7 +745,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
           'Could not determine the video size for TikTok upload'
         );
       }
-      return Number(length);
+      return length;
     }
 
     return statSync(path).size;
@@ -719,11 +754,41 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
   // Returns a streaming body for the [start, end] byte range of the media so we
   // never hold the whole file in memory: a ranged GET for remote URLs, a ranged
   // read stream for local files.
-  private async tiktokChunkStream(path: string, start: number, end: number) {
+  private async tiktokChunkStream(
+    path: string,
+    start: number,
+    end: number,
+    videoSize: number
+  ) {
+    const localUploadPath = this.tiktokLocalUploadPath(path);
+    if (localUploadPath) {
+      return createReadStream(localUploadPath, { start, end });
+    }
+
     if (path.indexOf('http') === 0) {
       const response = await fetch(path, {
         headers: { Range: `bytes=${start}-${end}` },
-      });
+        dispatcher: getSsrfSafeDispatcher(),
+      } as any);
+      const expectedLength = end - start + 1;
+      const responseLength = Number(response.headers.get('content-length'));
+      const isWholeFile = start === 0 && expectedLength === videoSize;
+      const statusMatchesRange = response.status === 206;
+      const statusMatchesWholeFile = isWholeFile && response.status === 200;
+
+      if (
+        !response.ok ||
+        (!statusMatchesRange && !statusMatchesWholeFile) ||
+        (Number.isFinite(responseLength) && responseLength !== expectedLength)
+      ) {
+        throw new BadBody(
+          'tiktok-error-upload',
+          '{}',
+          Buffer.from('{}'),
+          'Could not read the requested video chunk for TikTok upload'
+        );
+      }
+
       return response.body;
     }
 
@@ -747,7 +812,7 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
         i === totalChunkCount - 1 ? videoSize - 1 : start + chunkSize - 1;
       const contentLength = end - start + 1;
 
-      const body = await this.tiktokChunkStream(path, start, end);
+      const body = await this.tiktokChunkStream(path, start, end, videoSize);
 
       const upload = await fetch(uploadUrl, {
         method: 'PUT',
