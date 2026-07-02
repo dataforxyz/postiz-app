@@ -1,6 +1,6 @@
 'use client';
 
-import { FC, useMemo } from 'react';
+import { FC } from 'react';
 import { clsx } from 'clsx';
 import { useFormContext } from 'react-hook-form';
 import { TranslatedLabel } from '../translation/translated-label';
@@ -39,11 +39,8 @@ export const MultiSelect: FC<{
     translationParams,
   } = props;
   const form = useFormContext();
-  const err = useMemo(() => {
-    if (error) return error;
-    if (!form || !name || !form.formState.errors[name]) return;
-    return form?.formState?.errors?.[name]?.message as string;
-  }, [form?.formState?.errors?.[name!]?.message, error, name]);
+  const formError = name ? form?.formState.errors[name]?.message : undefined;
+  const err = error || formError;
 
   const isSelected = (optionValue: string | number) =>
     value.some((current) => String(current) === String(optionValue));
