@@ -906,7 +906,7 @@ export class PostsService {
         let settingsError = '';
         if (provider?.dto) {
           const instance = plainToInstance(provider.dto, settings, {
-            enableImplicitConversion: true,
+            enableImplicitConversion: false,
           });
           const validationErrors = await validate(instance as object, {
             skipMissingProperties: false,
