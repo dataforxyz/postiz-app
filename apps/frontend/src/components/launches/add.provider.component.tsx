@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element, jsx-a11y/alt-text */
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import React, { FC, useCallback, useMemo } from 'react';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';

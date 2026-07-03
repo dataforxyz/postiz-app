@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { useIntegration } from '@gitroom/frontend/components/launches/helpers/use.integration';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { useMediaDirectory } from '@gitroom/react/helpers/use.media.directory';

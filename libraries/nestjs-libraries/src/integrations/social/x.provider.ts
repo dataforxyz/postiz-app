@@ -170,7 +170,6 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     fields: { likesAmount: string }
   ) {
     // @ts-ignore
-    // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
       appKey: process.env.X_API_KEY!,
@@ -254,7 +253,6 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     fields: { likesAmount: string; post: string }
   ) {
     // @ts-ignore
-    // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
       appKey: process.env.X_API_KEY!,

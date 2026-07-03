@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable react-hooks/incompatible-library, react-hooks/exhaustive-deps */
 import React, { FC, useCallback, useMemo, useState } from 'react';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useRouter } from 'next/navigation';
@@ -49,7 +50,6 @@ const FirstStep: FC = (props) => {
     async (reader: ReadableStreamDefaultReader) => {
       const decoder = new TextDecoder('utf-8');
       let lastResponse = {} as any;
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) return lastResponse.data.output;

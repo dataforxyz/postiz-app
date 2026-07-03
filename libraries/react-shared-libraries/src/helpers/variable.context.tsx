@@ -77,7 +77,7 @@ export const VariableContextComponent: FC<
       // @ts-ignore
       window.vars = otherProps;
     }
-  }, []);
+  }, [otherProps]);
   return (
     <VariableContext.Provider value={otherProps}>
       {children}

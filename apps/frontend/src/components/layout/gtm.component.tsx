@@ -12,7 +12,6 @@ export const TrialTracker: FC = () => {
     if (
       typeof window === 'undefined' ||
       !user?.id ||
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error
       !window.gtag ||
       !googleAdsId ||
@@ -24,13 +23,12 @@ export const TrialTracker: FC = () => {
     const key = `gtm_start_trial_${user?.id}`;
     if (localStorage.getItem(key)) return;
     localStorage.setItem(key, '1');
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-expect-error
     gtag('event', 'conversion', {
       send_to: `${googleAdsId}/${googleAdsTrialTracking}`,
       transaction_id: user.id,
     });
-  }, [user]);
+  }, [user, googleAdsId, googleAdsTrialTracking]);
   return null;
 };
 
