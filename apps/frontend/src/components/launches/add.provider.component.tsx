@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element, jsx-a11y/alt-text */
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import React, { FC, useCallback, useMemo } from 'react';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
@@ -165,6 +166,7 @@ export const CustomVariables: FC<{
     defaultValue?: string;
     validation: string;
     type: 'text' | 'password';
+    hint?: string;
   }>;
   close?: () => void;
   identifier: string;
@@ -236,11 +238,31 @@ export const CustomVariables: FC<{
         >
           {variables.map((variable) => (
             <div key={variable.key}>
-              <Input
-                label={variable.label}
-                name={variable.key}
-                type={variable.type == 'text' ? 'text' : 'password'}
-              />
+              {variable.hint ? (
+                <div className="flex flex-col gap-[6px]">
+                  <div className="text-[14px] flex items-center gap-[6px]">
+                    <span>{variable.label}</span>
+                    <span
+                      data-tooltip-id="tooltip"
+                      data-tooltip-content={variable.hint}
+                      className="w-[16px] h-[16px] rounded-full border border-textColor/60 text-textColor/60 flex items-center justify-center text-[11px] leading-none cursor-help select-none"
+                    >
+                      i
+                    </span>
+                  </div>
+                  <Input
+                    label=""
+                    name={variable.key}
+                    type={variable.type == 'text' ? 'text' : 'password'}
+                  />
+                </div>
+              ) : (
+                <Input
+                  label={variable.label}
+                  name={variable.key}
+                  type={variable.type == 'text' ? 'text' : 'password'}
+                />
+              )}
             </div>
           ))}
           <div>
@@ -372,6 +394,7 @@ export const AddProviderComponent: FC<{
       label: string;
       validation: string;
       type: 'text' | 'password';
+      hint?: string;
     }>;
   }>;
   article: Array<{
@@ -389,6 +412,7 @@ export const AddProviderComponent: FC<{
   const router = useRouter();
   const fetch = useFetch();
   const modal = useModals();
+  const t = useT();
   const getSocialLink = useCallback(
     (
         invite: boolean,
@@ -402,6 +426,7 @@ export const AddProviderComponent: FC<{
           validation: string;
           defaultValue?: string;
           type: 'text' | 'password';
+          hint?: string;
         }>
       ) =>
       async () => {
@@ -641,10 +666,8 @@ export const AddProviderComponent: FC<{
         }
         await gotoIntegration();
       },
-    [onboarding]
+    [fetch, isMobile, modal, onboarding, router, t, toaster]
   );
-
-  const t = useT();
 
   return (
     <div className="w-full flex flex-col gap-[20px] rounded-[4px] relative]">

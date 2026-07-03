@@ -6,6 +6,9 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { SocialAbstract } from '@gitroom/nestjs-libraries/integrations/social.abstract';
+import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { readFileSync } from 'fs';
+import { join, normalize } from 'node:path';
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { number, string } from 'yup';
@@ -131,6 +134,31 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
     );
   }
 
+  private localUploadPath(fileUrl: string) {
+    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/+$/, '');
+    const uploadDirectory = process.env.UPLOAD_DIRECTORY;
+    if (!frontendUrl || !uploadDirectory) {
+      return null;
+    }
+
+    const localUploadsUrl = `${frontendUrl}/uploads/`;
+    if (!fileUrl.startsWith(localUploadsUrl)) {
+      return null;
+    }
+
+    const publicPath = decodeURIComponent(new URL(fileUrl).pathname).replace(
+      /^\/uploads\//,
+      ''
+    );
+    const uploadRoot = normalize(uploadDirectory);
+    const resolvedPath = normalize(join(uploadRoot, publicPath));
+    const uploadRootWithSlash = uploadRoot.endsWith('/')
+      ? uploadRoot
+      : `${uploadRoot}/`;
+
+    return resolvedPath.startsWith(uploadRootWithSlash) ? resolvedPath : null;
+  }
+
   async uploadFile(
     instanceUrl: string,
     fileUrl: string,
@@ -138,7 +166,16 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
     alt?: string
   ) {
     const form = new FormData();
-    form.append('file', await fetch(fileUrl).then((r) => r.blob()));
+    const localFilePath = this.localUploadPath(fileUrl);
+    form.append(
+      'file',
+      localFilePath
+        ? new Blob([readFileSync(localFilePath)])
+        : await fetch(fileUrl, {
+            // @ts-ignore - undici-only option; blocks SSRF to internal IPs
+            dispatcher: getSsrfSafeDispatcher(),
+          }).then((r) => r.blob())
+    );
     if (alt) {
       form.append('description', alt);
     }

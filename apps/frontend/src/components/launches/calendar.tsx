@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable react-hooks/exhaustive-deps, @next/next/no-img-element, jsx-a11y/alt-text */
 import React, {
   FC,
   Fragment,
@@ -106,8 +107,8 @@ const usePostActions = (onMutate?: () => void) => {
     onMutate?.();
   }, [reloadCalendarView, onMutate]);
 
-  const editPost = useCallback(
-    (loadPost: any, isDuplicate?: boolean) => async () => {
+  function editPost(loadPost: any, isDuplicate?: boolean) {
+    return async () => {
       const post = {
         ...loadPost,
         publishDate: loadPost.actualDate || loadPost.publishDate,
@@ -169,29 +170,23 @@ const usePostActions = (onMutate?: () => void) => {
         size: '80%',
         title: ``,
       });
-    },
-    [integrations, fetch, modal, mutate]
-  );
+    };
+  }
 
   const copyDebugJson = useCallback(
-    (post: any) => async () => {
-      try {
-        const data = await (
-          await fetch(`/posts/group/${post.group}/debug-export`)
-        ).json();
-        copy(JSON.stringify(data, null, 2));
-        toaster.show(
-          t('debug_json_copied', 'Debug JSON copied to clipboard'),
-          'success'
-        );
-      } catch {
-        toaster.show(
-          t('debug_json_copy_failed', 'Failed to copy debug data'),
-          'warning'
-        );
-      }
+    (post: any) => () => {
+      modal.openModal({
+        title: t('copy_debug_json', 'Copy Debug JSON'),
+        closeOnClickOutside: true,
+        closeOnEscape: true,
+        withCloseButton: true,
+        classNames: {
+          modal: 'w-[100%] max-w-[500px]',
+        },
+        children: <DebugJsonModal post={post} />,
+      });
     },
-    [fetch, toaster, t]
+    [modal, t]
   );
 
   const deletePost = useCallback(
@@ -1182,6 +1177,56 @@ const CalendarItem: FC<{
     </div>
   );
 });
+const DebugJsonModal: FC<{ post: any }> = ({ post }) => {
+  const t = useT();
+  const fetch = useFetch();
+  const toaster = useToaster();
+  const { closeCurrent } = useModals();
+
+  const copyPostId = useCallback(() => {
+    copy(post.id);
+    toaster.show(
+      t('post_id_copied', 'Post ID copied to clipboard'),
+      'success'
+    );
+    closeCurrent();
+  }, [post, toaster, t, closeCurrent]);
+
+  const copyJson = useCallback(async () => {
+    try {
+      const data = await (
+        await fetch(`/posts/group/${post.group}/debug-export`)
+      ).json();
+      copy(JSON.stringify(data, null, 2));
+      toaster.show(
+        t('debug_json_copied', 'Debug JSON copied to clipboard'),
+        'success'
+      );
+      closeCurrent();
+    } catch {
+      toaster.show(
+        t('debug_json_copy_failed', 'Failed to copy debug data'),
+        'warning'
+      );
+    }
+  }, [fetch, post, toaster, t, closeCurrent]);
+
+  return (
+    <div className="flex flex-col gap-[16px] p-[16px]">
+      <div className="text-textColor text-[14px]">
+        {t('debug_choose_copy', 'Choose what you want to copy')}
+      </div>
+      <div className="flex gap-[10px]">
+        <Button onClick={copyPostId}>
+          {t('copy_post_id', 'Copy post id')}
+        </Button>
+        <Button secondary onClick={copyJson}>
+          {t('copy_debug_json', 'Copy Debug JSON')}
+        </Button>
+      </div>
+    </div>
+  );
+};
 const CopyDebug = () => {
   const t = useT();
   return (

@@ -450,12 +450,13 @@ export class StripeService {
     }
 
     const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const trialStart = allowTrial ? '&trialStart=true' : '';
     const { client_secret } = await stripe.checkout.sessions.create({
       ui_mode: 'custom',
       customer,
       return_url:
         process.env['FRONTEND_URL'] +
-        `/launches?onboarding=true&check=${uniqueId}${isUtm}`,
+        `/launches?onboarding=true${trialStart}&check=${uniqueId}${isUtm}`,
       mode: 'subscription',
       subscription_data: {
         ...(allowTrial ? { trial_period_days: 7 } : {}),
@@ -501,6 +502,7 @@ export class StripeService {
     allowTrial: boolean
   ) {
     const isUtm = body.utm ? `&utm_source=${body.utm}` : '';
+    const trialStart = allowTrial ? '&trialStart=true' : '';
 
     if (body.dub) {
       await stripe.customers.update(customer, {
@@ -516,7 +518,7 @@ export class StripeService {
       cancel_url: process.env['FRONTEND_URL'] + `/billing?cancel=true${isUtm}`,
       success_url:
         process.env['FRONTEND_URL'] +
-        `/launches?onboarding=true&check=${uniqueId}${isUtm}`,
+        `/launches?onboarding=true${trialStart}&check=${uniqueId}${isUtm}`,
       mode: 'subscription',
       subscription_data: {
         ...(allowTrial ? { trial_period_days: 7 } : {}),
@@ -937,6 +939,188 @@ export class StripeService {
     await this._subscriptionService.deleteSubscription(customer);
 
     return { cancelled: true };
+  }
+
+  async chatbaseRefundPreview(organizationId: string) {
+    const org = await this._organizationService.getOrgById(organizationId);
+    if (!org?.paymentId) {
+      return {
+        eligible: false as const,
+        reason: 'No payment customer found for this organization',
+      };
+    }
+
+    const customer = org.paymentId;
+    const cancelableSubscriptionStatuses = new Set([
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+    ]);
+
+    const subscriptions = (
+      await stripe.subscriptions.list({
+        customer,
+        status: 'all',
+      })
+    ).data.filter((f) => cancelableSubscriptionStatuses.has(f.status));
+
+    if (!subscriptions.length) {
+      return {
+        eligible: false as const,
+        reason: 'No active subscription found for this customer',
+      };
+    }
+
+    const charges = (
+      await stripe.charges.list({
+        customer,
+        limit: 100,
+      })
+    ).data.filter((f) => f.status === 'succeeded');
+
+    // only refund a charge that was created by the active subscription,
+    // never a one-off payment
+    let lastCharge: (typeof charges)[number] | undefined = undefined;
+    let chargeSubscription: (typeof subscriptions)[number] | undefined =
+      undefined;
+
+    for (const charge of charges) {
+      const invoiceId = (charge as any).invoice;
+      if (!invoiceId || typeof invoiceId !== 'string') {
+        continue;
+      }
+
+      try {
+        const invoice = await stripe.invoices.retrieve(invoiceId);
+        const invoiceSubscription =
+          invoice.parent?.subscription_details?.subscription;
+        const subscriptionId =
+          typeof invoiceSubscription === 'string'
+            ? invoiceSubscription
+            : invoiceSubscription?.id;
+
+        chargeSubscription = subscriptions.find(
+          (f) => f.id === subscriptionId
+        );
+
+        if (chargeSubscription) {
+          lastCharge = charge;
+          break;
+        }
+      } catch {
+        // ignore if invoice can't be fetched
+      }
+    }
+
+    if (!lastCharge || !chargeSubscription) {
+      return {
+        eligible: false as const,
+        reason: 'No subscription payment found for this customer',
+      };
+    }
+
+    const sixtyDaysAgo = Math.floor(Date.now() / 1000) - 60 * 24 * 60 * 60;
+    if (lastCharge.created < sixtyDaysAgo) {
+      return {
+        eligible: false as const,
+        reason: 'The last subscription payment is older than 60 days',
+      };
+    }
+
+    const interval =
+      chargeSubscription.items?.data?.[0]?.price?.recurring?.interval;
+
+    // maximum refund is one month worth of the subscription
+    const amount =
+      interval === 'year'
+        ? Math.floor(lastCharge.amount / 12)
+        : lastCharge.amount;
+
+    let existingChatbaseRefundId: string | null = null;
+    if (lastCharge.refunded || lastCharge.amount_refunded > 0) {
+      const existingRefund = (
+        await stripe.refunds.list({
+          charge: lastCharge.id,
+          limit: 100,
+        })
+      ).data.find(
+        (refund) =>
+          refund.metadata?.reason === 'chatbase_refund' &&
+          refund.metadata?.organizationId === organizationId &&
+          refund.amount === amount
+      );
+
+      if (!existingRefund) {
+        return {
+          eligible: false as const,
+          reason: 'A refund was already issued for this customer',
+        };
+      }
+
+      existingChatbaseRefundId = existingRefund.id;
+    }
+
+    const currentSubscription =
+      await this._subscriptionService.getSubscriptionByOrganizationId(
+        organizationId
+      );
+
+    return {
+      eligible: true as const,
+      chargeId: lastCharge.id,
+      amount: amount / 100,
+      currency: lastCharge.currency,
+      tier: currentSubscription?.subscriptionTier || null,
+      period: currentSubscription?.period || null,
+      subscriptionIds: subscriptions.map((f) => f.id),
+      existingChatbaseRefundId,
+    };
+  }
+
+  async chatbaseRefund(organizationId: string) {
+    const preview = await this.chatbaseRefundPreview(organizationId);
+    if (!preview.eligible) {
+      return {
+        refunded: false,
+        reason: preview.reason,
+      };
+    }
+
+    const org = await this._organizationService.getOrgById(organizationId);
+
+    const refundAmount = Math.round(preview.amount * 100);
+
+    if (!preview.existingChatbaseRefundId) {
+      await stripe.refunds.create(
+        {
+          charge: preview.chargeId,
+          amount: refundAmount,
+          metadata: {
+            reason: 'chatbase_refund',
+            organizationId,
+          },
+        },
+        {
+          idempotencyKey: `chatbase-refund-${organizationId}-${preview.chargeId}-${refundAmount}`,
+        }
+      );
+    }
+
+    for (const subscriptionId of preview.subscriptionIds) {
+      await stripe.subscriptions.cancel(subscriptionId);
+    }
+
+    if (preview.subscriptionIds.length) {
+      await this._subscriptionService.deleteSubscription(org?.paymentId!);
+    }
+
+    return {
+      refunded: true,
+      amount: preview.amount,
+      currency: preview.currency,
+      subscriptionCancelled: preview.subscriptionIds.length > 0,
+    };
   }
 
   async lifetimeDeal(organizationId: string, code: string) {
