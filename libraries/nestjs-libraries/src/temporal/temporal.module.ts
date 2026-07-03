@@ -70,11 +70,7 @@ export const getTemporalModule = (
                         maxConcurrentActivityTaskExecutions: concurrency,
                       },
                     }
-                  : {
-                      workerOptions: {
-                        maxConcurrentActivityTaskExecutions: 1000000,
-                      },
-                    }),
+                  : {}),
               };
             }),
         }
