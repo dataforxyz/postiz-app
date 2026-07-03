@@ -14,6 +14,8 @@ import slugify from 'slugify';
 import axios from 'axios';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { readFileSync } from 'fs';
+import { join, normalize } from 'node:path';
 import { string } from 'yup';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
@@ -227,6 +229,49 @@ export class WordpressProvider
     return response.json();
   }
 
+  private localUploadPath(fileUrl: string) {
+    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/+$/, '');
+    const uploadDirectory = process.env.UPLOAD_DIRECTORY;
+    if (!frontendUrl || !uploadDirectory) {
+      return null;
+    }
+
+    const localUploadsUrl = `${frontendUrl}/uploads/`;
+    if (!fileUrl.startsWith(localUploadsUrl)) {
+      return null;
+    }
+
+    const publicPath = decodeURIComponent(new URL(fileUrl).pathname).replace(
+      /^\/uploads\//,
+      ''
+    );
+    const uploadRoot = normalize(uploadDirectory);
+    const resolvedPath = normalize(join(uploadRoot, publicPath));
+    const uploadRootWithSlash = uploadRoot.endsWith('/')
+      ? uploadRoot
+      : `${uploadRoot}/`;
+
+    return resolvedPath.startsWith(uploadRootWithSlash) ? resolvedPath : null;
+  }
+
+  private async mediaBlob(fileUrl: string) {
+    const localFilePath = this.localUploadPath(fileUrl);
+    if (localFilePath) {
+      const extension = localFilePath.split('.').pop()?.toLowerCase();
+      const mimeType =
+        extension === 'png'
+          ? 'image/png'
+          : extension === 'webp'
+          ? 'image/webp'
+          : extension === 'gif'
+          ? 'image/gif'
+          : 'image/jpeg';
+      return new Blob([readFileSync(localFilePath)], { type: mimeType });
+    }
+
+    return this.fetch(fileUrl).then((r) => r.blob());
+  }
+
   @Tool({
     description: 'Get list of post types',
     dataSchema: [],
@@ -306,9 +351,9 @@ export class WordpressProvider
         postDetails[0].settings.main_image.path
       );
 
-      const blob = await this.fetch(
+      const blob = await this.mediaBlob(
         postDetails[0].settings.main_image.path
-      ).then((r) => r.blob());
+      );
 
       const mediaResponse = await (
         await this.fetch(`${body.domain}/wp-json/wp/v2/media`, {

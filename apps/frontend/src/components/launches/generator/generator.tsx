@@ -1,6 +1,5 @@
 'use client';
 
-/* eslint-disable react-hooks/incompatible-library, react-hooks/exhaustive-deps */
 import React, { FC, useCallback, useMemo, useState } from 'react';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useRouter } from 'next/navigation';
@@ -45,6 +44,7 @@ const FirstStep: FC = (props) => {
       tone: 'personal',
     },
   });
+  // eslint-disable-next-line react-hooks/incompatible-library
   const [research] = form.watch(['research']);
   const generateStep = useCallback(
     async (reader: ReadableStreamDefaultReader) => {
@@ -312,7 +312,7 @@ export const GeneratorPopup = () => {
   const modals = useModals();
   const closeAll = useCallback(() => {
     modals.closeAll();
-  }, []);
+  }, [modals]);
   return (
     <div className="w-full flex flex-col rounded-[4px] relative">
       <FirstStep />
@@ -351,7 +351,7 @@ export const GeneratorComponent = () => {
         </CalendarWeekProvider>
       ),
     });
-  }, [user, all]);
+  }, [all, modal, router, t, user]);
   return (
     <div
       className="h-[44px] w-[44px] group-[.sidebar]:w-full bg-ai justify-center items-center flex rounded-[8px] cursor-pointer"
