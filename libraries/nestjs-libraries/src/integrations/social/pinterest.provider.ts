@@ -104,6 +104,12 @@ export class PinterestProvider
         value: 'Pinterest was unable to reach the URL provided. Please check the link and try again.',
       }
     }
+    if (body.indexOf(`does not match '^\\\\\\\\\\\\\\\\d+$'`) > -1) {
+      return {
+        type: 'bad-body' as const,
+        value: 'The board ID must be a numeric string. Please check the board ID format.',
+      }
+    }
     if (body.indexOf('Board not found') > -1) {
       return {
         type: 'bad-body' as const,
@@ -283,7 +289,18 @@ export class PinterestProvider
       await axios.post(upload_url, formData);
 
       let statusCode = '';
+      let attempts = 0;
+      const maxAttempts = 18; // ~9 minutes at 30s interval
       while (statusCode !== 'succeeded') {
+        if (attempts++ >= maxAttempts) {
+          throw new BadBody(
+            'pinterest',
+            JSON.stringify({}),
+            {} as any,
+            'The file took too long to process, please try again'
+          );
+        }
+
         const mediafile = await (
           await this.fetch(
             'https://api.pinterest.com/v5/media/' + media_id,

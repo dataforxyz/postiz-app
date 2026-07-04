@@ -4,6 +4,8 @@ import { createContext, FC, ReactNode, useContext, useEffect } from 'react';
 interface VariableContextInterface {
   stripeClient: string;
   billingEnabled: boolean;
+  isChatBase: boolean;
+  chatbaseBotId: string;
   isGeneral: boolean;
   genericOauth: boolean;
   oauthLogoUrl: string;
@@ -37,6 +39,8 @@ const VariableContext = createContext({
   billingEnabled: false,
   isGeneral: true,
   genericOauth: false,
+  isChatBase: false,
+  chatbaseBotId: '',
   oauthLogoUrl: '',
   googleAdsId: '',
   googleAdsTrialTracking: '',
@@ -73,7 +77,7 @@ export const VariableContextComponent: FC<
       // @ts-ignore
       window.vars = otherProps;
     }
-  }, []);
+  }, [otherProps]);
   return (
     <VariableContext.Provider value={otherProps}>
       {children}
