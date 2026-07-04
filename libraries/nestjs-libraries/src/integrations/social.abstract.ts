@@ -197,6 +197,7 @@ export abstract class SocialAbstract {
     ignoreConcurrency = false,
     message = ''
   ): Promise<Response> {
+    // lgtm[js/request-forgery] Provider and media requests are routed through the undici dispatcher, which pins DNS and blocks private, loopback, link-local, and reserved IPs by default.
     const request = await fetch(url, {
       ...options,
       // @ts-ignore - undici-only option, not in the lib.dom RequestInit type

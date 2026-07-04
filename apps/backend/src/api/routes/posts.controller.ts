@@ -30,6 +30,18 @@ import {
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { PostValidationException } from '@gitroom/backend/api/routes/posts.validation.exception';
 
+const HTML_ESCAPE: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+
+function escapeHtmlText(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => HTML_ESCAPE[char] || char);
+}
+
 @ApiTags('Posts')
 @Controller('/posts')
 export class PostsController {
@@ -250,10 +262,12 @@ export class PostsController {
       // client can stop and show the message rather than hang on a truncated
       // stream. HttpExceptions carry a curated, user-facing message (e.g. the
       // AI safety rejection); anything else gets a generic message.
-      const message =
+      const message = escapeHtmlText(
         err instanceof HttpException
           ? err.message
-          : 'Something went wrong while generating your posts, please try again.';
+          : 'Something went wrong while generating your posts, please try again.'
+      );
+      // lgtm[js/xss-through-exception] The streamed error message is HTML-escaped before it is serialized into the JSON event.
       res.write(JSON.stringify({ name: 'error', error: true, message }) + '\n');
     }
 
