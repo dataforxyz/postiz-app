@@ -1,7 +1,23 @@
 import { HttpException } from '@nestjs/common';
 
 // e.g. "400 Your request was rejected by the safety system, safety_violations=[sexual]"
-const SAFETY_VIOLATIONS_REGEX = /safety_violations=\[([^\]]*)\]/i;
+const SAFETY_VIOLATIONS_MARKER = 'safety_violations=[';
+
+function extractSafetyViolations(message: string): string {
+  const lowerMessage = message.toLowerCase();
+  const start = lowerMessage.indexOf(SAFETY_VIOLATIONS_MARKER);
+  if (start === -1) {
+    return '';
+  }
+
+  const categoriesStart = start + SAFETY_VIOLATIONS_MARKER.length;
+  const categoriesEnd = message.indexOf(']', categoriesStart);
+  if (categoriesEnd === -1) {
+    return '';
+  }
+
+  return message.slice(categoriesStart, categoriesEnd).trim();
+}
 
 // Match genuine content-safety rejections by message, NOT by a bare 400 status:
 // a 400 can just as easily be an invalid-parameter error, which must not be
@@ -28,7 +44,7 @@ export function generationError(err: any): HttpException {
     err?.error?.message || err?.message || String(err || '');
 
   if (SAFETY_MESSAGE_REGEX.test(message)) {
-    const categories = message.match(SAFETY_VIOLATIONS_REGEX)?.[1]?.trim();
+    const categories = extractSafetyViolations(message);
     const detail = categories ? ` Flagged categories: ${categories}.` : '';
     return new HttpException(
       `Your request was rejected by the AI safety system.${detail} Please adjust your prompt and try again.`,

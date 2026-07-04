@@ -14,9 +14,9 @@ import slugify from 'slugify';
 import axios from 'axios';
 import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
+import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
 import { readFileSync } from 'fs';
 import { join, normalize } from 'node:path';
-import { string } from 'yup';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
 export class WordpressProvider
@@ -92,6 +92,67 @@ export class WordpressProvider
     ];
   }
 
+  private trimTrailingSlashes(value: string) {
+    let end = value.length;
+    while (end > 0 && value[end - 1] === '/') {
+      end -= 1;
+    }
+    return value.slice(0, end);
+  }
+
+  private normalizeDomain(rawDomain: string) {
+    let parsed: URL;
+    try {
+      parsed = new URL(rawDomain.trim());
+    } catch {
+      return undefined;
+    }
+
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return undefined;
+    }
+
+    if (parsed.username || parsed.password || !parsed.hostname) {
+      return undefined;
+    }
+
+    parsed.hash = '';
+    parsed.search = '';
+    while (parsed.pathname !== '/' && parsed.pathname.endsWith('/')) {
+      parsed.pathname = parsed.pathname.slice(0, -1);
+    }
+
+    const normalized = parsed.toString();
+    return normalized.endsWith('/') ? normalized.slice(0, -1) : normalized;
+  }
+
+  private wordpressUrl(domain: string, path: string) {
+    const base = domain.endsWith('/') ? domain : `${domain}/`;
+    const relativePath = path.startsWith('/') ? path.slice(1) : path;
+    return new URL(relativePath, base).toString();
+  }
+
+  private async safeWordpressDomain(rawDomain: string) {
+    const domain = this.normalizeDomain(rawDomain);
+    if (!domain) {
+      return undefined;
+    }
+
+    // Self-hosted deployments can opt out of the public-HTTPS check when they
+    // intentionally connect to an internal WordPress over a private network.
+    // The hosted/default path requires a public HTTPS target and still uses the
+    // undici dispatcher below to pin DNS and block private IP redirects/rebinds.
+    if (process.env.DISABLE_SSRF_PROTECTION === 'true') {
+      return domain;
+    }
+
+    return (await isSafePublicHttpsUrl(
+      this.wordpressUrl(domain, '/wp-json/wp/v2/users/me')
+    ))
+      ? domain
+      : undefined;
+  }
+
   async authenticate(params: {
     code: string;
     codeVerifier: string;
@@ -103,9 +164,13 @@ export class WordpressProvider
       password: string;
     };
 
-    // Normalize the domain - users often paste it with surrounding whitespace
-    // or a trailing slash, which would otherwise build `https://site.com//wp-json/...`.
-    const domain = body.domain.trim().replace(/\/+$/, '');
+    // Normalize and validate the domain before using it in a server-side
+    // request. Users often paste it with surrounding whitespace or a trailing
+    // slash, which would otherwise build `https://site.com//wp-json/...`.
+    const domain = await this.safeWordpressDomain(body.domain);
+    if (!domain) {
+      return 'Domain URL must be a publicly reachable HTTPS WordPress site.';
+    }
 
     const auth = Buffer.from(`${body.username}:${body.password}`).toString(
       'base64'
@@ -115,7 +180,8 @@ export class WordpressProvider
     // return a specific message instead of throwing a generic error.
     let response: Response;
     try {
-      response = await fetch(`${domain}/wp-json/wp/v2/users/me`, {
+      // lgtm[js/request-forgery] The WordPress domain was normalized and checked by safeWordpressDomain above; the dispatcher pins DNS and blocks private IPs.
+      response = await fetch(this.wordpressUrl(domain, '/wp-json/wp/v2/users/me'), {
         headers: {
           Authorization: `Basic ${auth}`,
         },
@@ -145,8 +211,10 @@ export class WordpressProvider
         // Non-JSON error body (e.g. an HTML page from a security plugin).
       }
       console.log(
-        `WordPress auth failed for ${domain} (HTTP ${response.status})`,
+        'WordPress auth failed',
         JSON.stringify({
+          domain,
+          status: response.status,
           code: wpCode,
           message: wpMessage,
           ...(wpCode ? {} : { body: errorBody.slice(0, 500) }),
@@ -218,7 +286,13 @@ export class WordpressProvider
       'base64'
     );
 
-    const response = await fetch(`${body.domain}${path}`, {
+    const domain = await this.safeWordpressDomain(body.domain);
+    if (!domain) {
+      throw new Error('Invalid WordPress domain');
+    }
+
+    // lgtm[js/request-forgery] The WordPress domain was normalized and checked by safeWordpressDomain above; the dispatcher pins DNS and blocks private IPs.
+    const response = await fetch(this.wordpressUrl(domain, path), {
       headers: {
         Authorization: `Basic ${auth}`,
       },
@@ -230,7 +304,9 @@ export class WordpressProvider
   }
 
   private localUploadPath(fileUrl: string) {
-    const frontendUrl = process.env.FRONTEND_URL?.replace(/\/+$/, '');
+    const frontendUrl = process.env.FRONTEND_URL
+      ? this.trimTrailingSlashes(process.env.FRONTEND_URL)
+      : undefined;
     const uploadDirectory = process.env.UPLOAD_DIRECTORY;
     if (!frontendUrl || !uploadDirectory) {
       return null;
@@ -241,10 +317,11 @@ export class WordpressProvider
       return null;
     }
 
-    const publicPath = decodeURIComponent(new URL(fileUrl).pathname).replace(
-      /^\/uploads\//,
-      ''
-    );
+    const uploadPrefix = '/uploads/';
+    const pathname = decodeURIComponent(new URL(fileUrl).pathname);
+    const publicPath = pathname.startsWith(uploadPrefix)
+      ? pathname.slice(uploadPrefix.length)
+      : pathname;
     const uploadRoot = normalize(uploadDirectory);
     const resolvedPath = normalize(join(uploadRoot, publicPath));
     const uploadRootWithSlash = uploadRoot.endsWith('/')
@@ -343,6 +420,10 @@ export class WordpressProvider
     const auth = Buffer.from(`${body.username}:${body.password}`).toString(
       'base64'
     );
+    const domain = await this.safeWordpressDomain(body.domain);
+    if (!domain) {
+      throw new Error('Invalid WordPress domain');
+    }
 
     let mediaId = '';
     if (postDetails?.[0]?.settings?.main_image?.path) {
@@ -356,7 +437,7 @@ export class WordpressProvider
       );
 
       const mediaResponse = await (
-        await this.fetch(`${body.domain}/wp-json/wp/v2/media`, {
+        await this.fetch(this.wordpressUrl(domain, '/wp-json/wp/v2/media'), {
           method: 'POST',
           headers: {
             Authorization: `Basic ${auth}`,
@@ -381,7 +462,10 @@ export class WordpressProvider
 
     const submit = await (
       await this.fetch(
-        `${body.domain}/wp-json/wp/v2/${postDetails?.[0]?.settings?.type}`,
+        this.wordpressUrl(
+          domain,
+          `/wp-json/wp/v2/${postDetails?.[0]?.settings?.type}`
+        ),
         {
           headers: {
             Authorization: `Basic ${auth}`,
