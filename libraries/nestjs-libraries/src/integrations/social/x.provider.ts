@@ -119,6 +119,13 @@ export class XProvider extends SocialAbstract implements SocialProvider {
           'You have already posted this post, please wait before posting again',
       };
     }
+    if (body.includes('Your account is not permitted to access this feature')) {
+      return {
+        type: 'bad-body',
+        value:
+          'X blocked your request',
+      };
+    }
     if (body.includes('The Tweet contains an invalid URL.')) {
       return {
         type: 'bad-body',
@@ -163,7 +170,6 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     fields: { likesAmount: string }
   ) {
     // @ts-ignore
-    // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
       appKey: process.env.X_API_KEY!,
@@ -247,7 +253,6 @@ export class XProvider extends SocialAbstract implements SocialProvider {
     fields: { likesAmount: string; post: string }
   ) {
     // @ts-ignore
-    // eslint-disable-next-line prefer-rest-params
     const [accessTokenSplit, accessSecretSplit] = integration.token.split(':');
     const client = new TwitterApi({
       appKey: process.env.X_API_KEY!,
@@ -503,8 +508,8 @@ export class XProvider extends SocialAbstract implements SocialProvider {
         ? removeLinks(firstPost.message)
         : firstPost.message,
       ...(media_ids.length ? { media: { media_ids } } : {}),
-      made_with_ai: !!firstPost?.settings?.made_with_ai,
-      paid_partnership: !!firstPost?.settings?.paid_partnership,
+      made_with_ai: this.assetBoolean(firstPost?.settings?.made_with_ai),
+      paid_partnership: this.assetBoolean(firstPost?.settings?.paid_partnership),
     };
 
     const tweetResponse = await this.fetch(tweetUrl, {
@@ -565,8 +570,10 @@ export class XProvider extends SocialAbstract implements SocialProvider {
         : commentPost.message,
       ...(media_ids.length ? { media: { media_ids } } : {}),
       reply: { in_reply_to_tweet_id: replyToId },
-      made_with_ai: !!commentPost?.settings?.made_with_ai,
-      paid_partnership: !!commentPost?.settings?.paid_partnership,
+      made_with_ai: this.assetBoolean(commentPost?.settings?.made_with_ai),
+      paid_partnership: this.assetBoolean(
+        commentPost?.settings?.paid_partnership
+      ),
     };
 
     const tweetResponse = await this.fetch(tweetUrl, {

@@ -240,4 +240,26 @@ describe('TiktokProvider OAuth scopes', () => {
         'Not enough scopes, when choosing a provider, please add all the scopes',
     });
   });
+
+  it('resolves first-party local upload URLs to local files for chunked uploads', () => {
+    process.env.FRONTEND_URL = 'https://postiz.example';
+    process.env.UPLOAD_DIRECTORY = '/uploads';
+    const provider = new TiktokProvider();
+
+    expect(
+      (provider as any).tiktokLocalUploadPath(
+        'https://postiz.example/uploads/2026/07/02/video.mp4'
+      )
+    ).toBe('/uploads/2026/07/02/video.mp4');
+  });
+
+  it('declares enough upload chunks for videos just over one chunk boundary', () => {
+    const provider = new TiktokProvider();
+    const chunkSize = 10 * 1024 * 1024;
+
+    expect((provider as any).tiktokChunkPlan(65 * 1024 * 1024)).toEqual({
+      chunkSize,
+      totalChunkCount: 7,
+    });
+  });
 });

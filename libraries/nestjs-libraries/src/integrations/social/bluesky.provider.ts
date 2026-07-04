@@ -22,6 +22,8 @@ import {
 import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
+import { isSafePublicHttpsUrl } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.url.validator';
+import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import sharp from 'sharp';
 import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { timer } from '@gitroom/helpers/utils/timer';
@@ -30,6 +32,13 @@ import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validatio
 import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 import { hasExtension } from '@gitroom/helpers/utils/has.extension';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
+
+const blueskyFetch: typeof fetch = (url, init) =>
+  fetch(url, {
+    ...(init || {}),
+    // @ts-ignore - undici-only option; blocks DNS rebinding/private IPs.
+    dispatcher: (init as any)?.dispatcher ?? getSsrfSafeDispatcher(),
+  });
 
 async function reduceImageBySize(url: string, maxSizeKB = 976) {
   try {
@@ -77,7 +86,7 @@ async function uploadVideo(
   async function downloadVideo(
     url: string
   ): Promise<{ video: Buffer; size: number }> {
-    const response = await fetch(url);
+    const response = await blueskyFetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch video: ${response.statusText}`);
     }
@@ -97,7 +106,7 @@ async function uploadVideo(
   uploadUrl.searchParams.append('did', agent.session!.did);
   uploadUrl.searchParams.append('name', videoPath.split('/').pop()!);
 
-  const uploadResponse = await fetch(uploadUrl, {
+  const uploadResponse = await blueskyFetch(uploadUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${serviceAuth.token}`,
@@ -110,9 +119,23 @@ async function uploadVideo(
   const jobStatus = (await uploadResponse.json()) as AppBskyVideoDefs.JobStatus;
   console.log('JobId:', jobStatus.jobId);
   let blob: BlobRef | undefined = jobStatus.blob;
-  const videoAgent = new AtpAgent({ service: 'https://video.bsky.app' });
+  const videoAgent = new AtpAgent({
+    service: 'https://video.bsky.app',
+    fetch: blueskyFetch,
+  });
 
+  let attempts = 0;
+  const maxAttempts = 18; // ~9 minutes at 30s interval
   while (!blob) {
+    if (attempts++ >= maxAttempts) {
+      throw new BadBody(
+        'bluesky',
+        JSON.stringify({}),
+        {} as any,
+        'Video upload timed out, job did not complete'
+      );
+    }
+
     const { data: status } = await videoAgent.app.bsky.video.getJobStatus({
       jobId: jobStatus.jobId,
     });
@@ -203,6 +226,28 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
     ];
   }
 
+  private async isSafeService(service: string) {
+    return (
+      process.env.DISABLE_SSRF_PROTECTION === 'true' ||
+      (await isSafePublicHttpsUrl(service))
+    );
+  }
+
+  private async makeAgent(service: string) {
+    if (!(await this.isSafeService(service))) {
+      throw new RefreshToken(
+        'bluesky',
+        JSON.stringify({ error: 'Invalid service URL' }),
+        {} as BodyInit
+      );
+    }
+
+    return new BskyAgent({
+      service,
+      fetch: blueskyFetch,
+    });
+  }
+
   async refreshToken(refreshToken: string): Promise<AuthTokenDetails> {
     return {
       refreshToken: '',
@@ -231,10 +276,16 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
   }) {
     const body = JSON.parse(Buffer.from(params.code, 'base64').toString());
 
+    // Bluesky talks to a user-supplied service URL via BskyAgent (not our
+    // `this.fetch`), so the undici SSRF dispatcher can't intercept it. Validate
+    // the URL here — the connection chokepoint — so an internal/private address
+    // can never be saved as an integration. Opt-out matches the dispatcher env.
+    if (!(await this.isSafeService(body.service))) {
+      return 'Invalid service URL: must be a public HTTPS address';
+    }
+
     try {
-      const agent = new BskyAgent({
-        service: body.service,
-      });
+      const agent = await this.makeAgent(body.service);
 
       const {
         data: { accessJwt, refreshJwt, handle, did },
@@ -266,9 +317,7 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
     const body = JSON.parse(
       AuthService.fixedDecryption(integration.customInstanceDetails!)
     );
-    const agent = new BskyAgent({
-      service: body.service,
-    });
+    const agent = await this.makeAgent(body.service);
 
     try {
       await agent.login({
@@ -454,9 +503,7 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
     const body = JSON.parse(
       AuthService.fixedDecryption(integration.customInstanceDetails!)
     );
-    const agent = new BskyAgent({
-      service: body.service,
-    });
+    const agent = await this.makeAgent(body.service);
 
     await agent.login({
       identifier: body.identifier,
@@ -515,9 +562,7 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
     const body = JSON.parse(
       AuthService.fixedDecryption(integration.customInstanceDetails!)
     );
-    const agent = new BskyAgent({
-      service: body.service,
-    });
+    const agent = await this.makeAgent(body.service);
 
     await agent.login({
       identifier: body.identifier,
@@ -571,9 +616,7 @@ export class BlueskyProvider extends SocialAbstract implements SocialProvider {
       AuthService.fixedDecryption(integration.customInstanceDetails!)
     );
 
-    const agent = new BskyAgent({
-      service: body.service,
-    });
+    const agent = await this.makeAgent(body.service);
 
     await agent.login({
       identifier: body.identifier,

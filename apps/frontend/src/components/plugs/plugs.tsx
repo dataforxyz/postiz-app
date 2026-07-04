@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
 import useSWR from 'swr';
 import { useCallback, useMemo, useState } from 'react';
 import { capitalize, orderBy } from 'lodash';
@@ -25,10 +26,10 @@ export const Plugs = () => {
   const toaster = useToaster();
   const load = useCallback(async () => {
     return (await (await fetch('/integrations/list')).json()).integrations;
-  }, []);
+  }, [fetch]);
   const load2 = useCallback(async (path: string) => {
     return await (await fetch(path)).json();
-  }, []);
+  }, [fetch]);
   const { data: plugList, isLoading: plugLoading } = useSWR(
     '/integrations/plug/list',
     load2,
@@ -96,7 +97,7 @@ export const Plugs = () => {
     return (
       <div className="bg-newBgColorInner p-[20px] flex flex-1 flex-col gap-[15px] transition-all items-center justify-center">
         <div>
-          <img src="/peoplemarketplace.svg" />
+          <img src="/peoplemarketplace.svg" alt="" />
         </div>
         <div className="text-[48px]">
           {t(
@@ -105,8 +106,8 @@ export const Plugs = () => {
           )}
           <br />
           {t(
-            'you_have_to_add_x_or_linkedin_or_threads',
-            'You have to add: X or LinkedIn or Threads'
+            'you_have_to_add_x_linkedin_page_threads_or_bluesky',
+            'You have to add: X, LinkedIn Page, Threads or Bluesky'
           )}
         </div>
         <Button onClick={() => router.push('/launches')}>
