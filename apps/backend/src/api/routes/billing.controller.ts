@@ -19,6 +19,21 @@ export class BillingController {
     private _notificationService: NotificationService
   ) {}
 
+  private canManageBilling(user: User, org: Organization) {
+    const role = (org as any)?.users?.[0]?.role;
+    return user.isSuperAdmin || ['ADMIN', 'SUPERADMIN'].includes(role);
+  }
+
+  private assertChatbaseRefundAllowed(user: User, org: Organization) {
+    if (!process.env.CHATBASE_TOKEN || !process.env.CHATBASE_BOT_ID) {
+      throw new HttpException('Chatbase SSO is not configured', 400);
+    }
+
+    if (!this.canManageBilling(user, org)) {
+      throw new HttpException('Unauthorized', 400);
+    }
+  }
+
   @Get('/check/:id')
   async checkId(
     @GetOrgFromRequest() org: Organization,
@@ -177,6 +192,37 @@ export class BillingController {
     }
 
     return this._stripeService.cancelSubscription(org.id);
+  }
+
+  @Get('/chatbase-refund/preview')
+  chatbaseRefundPreview(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization
+  ) {
+    this.assertChatbaseRefundAllowed(user, org);
+
+    return this._stripeService.chatbaseRefundPreview(org.id);
+  }
+
+  @Post('/chatbase-refund')
+  async chatbaseRefund(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization
+  ) {
+    this.assertChatbaseRefundAllowed(user, org);
+
+    const refund = await this._stripeService.chatbaseRefund(org.id);
+
+    if (refund.refunded) {
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        'Refund issued from Chatbase',
+        `Organization ${org.name} received a refund of ${refund.amount} ${refund.currency} and their subscription was cancelled`,
+        user.email
+      );
+    }
+
+    return refund;
   }
 
   @Post('/add-subscription')

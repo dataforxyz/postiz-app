@@ -2,6 +2,7 @@ import { timer } from '@gitroom/helpers/utils/timer';
 import { Integration } from '@prisma/client';
 import { ApplicationFailure } from '@temporalio/activity';
 import { readOrFetch } from '@gitroom/helpers/utils/read.or.fetch';
+import { getSsrfSafeDispatcher } from '@gitroom/nestjs-libraries/dtos/webhooks/ssrf.safe.dispatcher';
 import sharp from 'sharp';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
 
@@ -10,25 +11,51 @@ export type ValidityMedia = {
   thumbnail?: string;
 };
 
+// Temporal serializes the whole ApplicationFailure (message + details) into the
+// workflow history and ships it over gRPC, which has a hard frame limit (4MB by
+// default). Provider error messages/bodies can be huge (full HTML error pages,
+// base64 media echoed back, stack traces), so we cap every string that goes into
+// the failure to keep the history small and avoid "GRPC Message too large".
+const MAX_FAILURE_MESSAGE = 2_000;
+const MAX_FAILURE_FIELD = 4_000;
+
+export function truncateForTemporal(value: any, max: number): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const str = typeof value === 'string' ? value : safeStringify(value);
+  if (str.length <= max) {
+    return str;
+  }
+
+  return `${str.slice(0, max)}… [truncated ${str.length - max} chars]`;
+}
+
 export class RefreshToken extends ApplicationFailure {
   constructor(identifier: string, json: string, body: BodyInit, message = '') {
-    super(message, 'refresh_token', true, [
-      {
-        identifier,
-        json,
-        body,
-      },
-    ]);
+    super(
+      truncateForTemporal(message, MAX_FAILURE_MESSAGE),
+      'refresh_token',
+      true,
+      [
+        {
+          identifier,
+          json: truncateForTemporal(json, MAX_FAILURE_FIELD),
+          body: truncateForTemporal(body, MAX_FAILURE_FIELD),
+        },
+      ]
+    );
   }
 }
 
 export class BadBody extends ApplicationFailure {
   constructor(identifier: string, json: string, body: BodyInit, message = '') {
-    super(message, 'bad_body', true, [
+    super(truncateForTemporal(message, MAX_FAILURE_MESSAGE), 'bad_body', true, [
       {
         identifier,
-        json,
-        body,
+        json: truncateForTemporal(json, MAX_FAILURE_FIELD),
+        body: truncateForTemporal(body, MAX_FAILURE_FIELD),
       },
     ]);
   }
@@ -93,6 +120,13 @@ export abstract class SocialAbstract {
     return true;
   }
 
+  protected assetBoolean(value: boolean | string) {
+    if (typeof value === 'string') {
+      return value.toLowerCase() === 'true';
+    }
+    return value || false;
+  }
+
   /** Reads the pixel dimensions of an image via sharp (works for http or local paths). */
   protected async getImageDimensions(
     path: string
@@ -144,7 +178,12 @@ export abstract class SocialAbstract {
           value.value || ''
         );
       }
-      throw new BadBody('', safeStringify(globalErr), {} as any, value.value || '');
+      throw new BadBody(
+        '',
+        safeStringify(globalErr),
+        {} as any,
+        value.value || ''
+      );
     }
 
     return value;
@@ -155,16 +194,18 @@ export abstract class SocialAbstract {
     options: RequestInit = {},
     identifier = '',
     totalRetries = 0,
-    ignoreConcurrency = false
+    ignoreConcurrency = false,
+    message = ''
   ): Promise<Response> {
-    const request = await fetch(url, options);
+    // lgtm[js/request-forgery] Provider and media requests are routed through the undici dispatcher, which pins DNS and blocks private, loopback, link-local, and reserved IPs by default.
+    const request = await fetch(url, {
+      ...options,
+      // @ts-ignore - undici-only option, not in the lib.dom RequestInit type
+      dispatcher: (options as any).dispatcher ?? getSsrfSafeDispatcher(),
+    });
 
     if (request.status === 200 || request.status === 201) {
       return request;
-    }
-
-    if (totalRetries > 2) {
-      throw new BadBody(identifier, '{}', options.body || '{}');
     }
 
     let json = '{}';
@@ -172,6 +213,12 @@ export abstract class SocialAbstract {
       json = await request.text();
     } catch (err) {
       json = '{}';
+    }
+
+    if (totalRetries > 2) {
+      // Include the platform's actual response body so the failure is
+      // diagnosable, instead of an empty '{}'.
+      throw new BadBody(identifier, json, options.body || '{}', message);
     }
 
     const handleError = this.handleErrors(json || '{}', request.status);
@@ -188,7 +235,8 @@ export abstract class SocialAbstract {
         options,
         identifier,
         totalRetries + 1,
-        ignoreConcurrency
+        ignoreConcurrency,
+        handleError?.value || 'Unknown Error'
       );
     }
 
@@ -199,7 +247,8 @@ export abstract class SocialAbstract {
         options,
         identifier,
         totalRetries + 1,
-        ignoreConcurrency
+        ignoreConcurrency,
+        handleError?.value || 'Unknown Error'
       );
     }
 
