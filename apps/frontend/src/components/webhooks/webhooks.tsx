@@ -30,7 +30,9 @@ export const Webhooks: FC = () => {
   const addWebhook = useCallback(
     (data?: any) => () => {
       modal.openModal({
-        title: data ? t('update_webhook', 'Update webhook') : t('add_webhook', 'Add webhook'),
+        title: data
+          ? t('update_webhook', 'Update webhook')
+          : t('add_webhook', 'Add webhook'),
         withCloseButton: true,
         children: <AddOrEditWebhook data={data} reload={mutate} />,
       });
@@ -52,7 +54,10 @@ export const Webhooks: FC = () => {
           method: 'DELETE',
         });
         mutate();
-        toaster.show(t('webhook_deleted_successfully', 'Webhook deleted successfully'), 'success');
+        toaster.show(
+          t('webhook_deleted_successfully', 'Webhook deleted successfully'),
+          'success'
+        );
       }
     },
     []
@@ -197,49 +202,32 @@ export const AddOrEditWebhook: FC<{
     [data, integrations]
   );
   const sendTest = useCallback(async () => {
-    const url = form.getValues('url');
-    toast.show(t('webhook_sent', 'Webhook send'), 'success');
+    if (!data?.id) {
+      toast.show(
+        t('save_webhook_before_testing', 'Save the webhook before testing it'),
+        'warning'
+      );
+      return;
+    }
+
     try {
-      await fetch(`/webhooks/send?url=${encodeURIComponent(url)}`, {
+      const response = await fetch('/webhooks/send', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify([
-          {
-            id: 'cm6tcts4f0005qcwit25cis26',
-            content: 'This is the first post to instagram',
-            publishDate: '2025-02-06T13:09:00.000Z',
-            releaseURL: 'https://facebook.com/release/release',
-            state: 'PUBLISHED',
-            integration: {
-              id: 'cm6s4uyou0001i2r47pxix6z1',
-              name: 'test',
-              providerIdentifier: 'instagram',
-              picture: 'https://uploads.gitroom.com/F6LSCD8wrrQ.jpeg',
-              type: 'social',
-            },
-          },
-          {
-            id: 'cm6tcts4f0005qcwit25cis26',
-            content: 'This is the second post to facebook',
-            publishDate: '2025-02-06T13:09:00.000Z',
-            releaseURL: 'https://facebook.com/release2/release2',
-            state: 'PUBLISHED',
-            integration: {
-              id: 'cm6s4uyou0001i2r47pxix6z1',
-              name: 'test2',
-              providerIdentifier: 'facebook',
-              picture: 'https://uploads.gitroom.com/F6LSCD8wrrQ.jpeg',
-              type: 'social',
-            },
-          },
-        ]),
+        body: JSON.stringify({ id: data.id }),
       });
-    } catch (e: any) {
-      /** empty **/
+      const result = await response.json();
+      if (!result.send) {
+        toast.show(t('webhook_test_failed', 'Webhook test failed'), 'warning');
+        return;
+      }
+      toast.show(t('webhook_sent', 'Webhook sent'), 'success');
+    } catch {
+      toast.show(t('webhook_test_failed', 'Webhook test failed'), 'warning');
     }
-  }, []);
+  }, [data?.id, fetch, t, toast]);
 
   return (
     <FormProvider {...form}>
@@ -298,6 +286,8 @@ export const AddOrEditWebhook: FC<{
                 className="mt-[24px]"
                 onClick={sendTest}
                 disabled={
+                  !data?.id ||
+                  form.formState.isDirty ||
                   !form.formState.isValid ||
                   (allIntegrations.value === 'specific' &&
                     !integrations?.length)
