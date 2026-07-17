@@ -23,6 +23,7 @@ import {
   postId as postIdSearchParam,
 } from '@gitroom/nestjs-libraries/temporal/temporal.search.attribute';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
+import { webhookTransport } from '@gitroom/nestjs-libraries/dtos/webhooks/webhook.transport';
 
 // Drops fields the workflow and downstream activities never read — biggest wins are `error` (grows per retry) and `childrenPost` (Prisma side-loads it on every recursive row).
 function slimPost(post: any) {
@@ -313,30 +314,18 @@ export class PostActivity {
 
   @ActivityMethod()
   async sendWebhooks(postId: string, orgId: string, integrationId: string) {
-    const webhooks = (await this._webhookService.getWebhooks(orgId)).filter(
-      (f) => {
-        return (
-          f.integrations.length === 0 ||
-          f.integrations.some((i) => i.integration.id === integrationId)
-        );
-      }
-    );
+    const webhooks = (
+      await this._webhookService.getWebhooksForDelivery(orgId)
+    ).filter((f) => {
+      return (
+        f.integrations.length === 0 ||
+        f.integrations.some((i) => i.integration.id === integrationId)
+      );
+    });
 
     const post = await this._postService.getPostByForWebhookId(postId);
     await Promise.all(
-      webhooks.map(async (webhook) => {
-        try {
-          await fetch(webhook.url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(post),
-          });
-        } catch (e) {
-          /**empty**/
-        }
-      })
+      webhooks.map((webhook) => webhookTransport.sendJson(webhook.url, post))
     );
   }
   @ActivityMethod()
