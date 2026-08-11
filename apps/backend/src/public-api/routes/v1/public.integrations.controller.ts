@@ -608,7 +608,8 @@ export class PublicIntegrationsController {
     @Query('refresh') refresh: string,
     @Query('return_url') returnUrl: string,
     @Query('state') returnState: string,
-    @GetOrgFromRequest() org: Organization
+    @GetOrgFromRequest() org: Organization,
+    @Req() req: Request
   ) {
     Sentry.metrics.count('public_api-request', 1);
     if (
@@ -633,12 +634,35 @@ export class PublicIntegrationsController {
 
     const validatedReturnUrl = validatePublicReturnUrl(returnUrl, returnState);
 
+    let refreshInternalId = '';
+    if (refresh) {
+      const refreshIntegration =
+        await this._integrationService.getIntegrationById(
+          org.id,
+          refresh,
+          getAllowedIntegrationIds(req as any)
+        );
+      if (!refreshIntegration) {
+        throw new HttpException({ msg: 'Integration not found' }, 404);
+      }
+      if (refreshIntegration.providerIdentifier !== integration) {
+        throw new HttpException(
+          { msg: 'Integration provider does not match reconnect provider' },
+          400
+        );
+      }
+      // The OAuth callback compares the provider account id with this value.
+      // Public API consumers know Postiz's row id, while the callback expects
+      // the provider-facing internalId used by Postiz's own reconnect UI.
+      refreshInternalId = refreshIntegration.internalId;
+    }
+
     try {
       const { codeVerifier, state, url } =
         await integrationProvider.generateAuthUrl();
 
-      if (refresh) {
-        await ioRedis.set(`refresh:${state}`, refresh, 'EX', 3600);
+      if (refreshInternalId) {
+        await ioRedis.set(`refresh:${state}`, refreshInternalId, 'EX', 3600);
       }
 
       if (validatedReturnUrl) {
