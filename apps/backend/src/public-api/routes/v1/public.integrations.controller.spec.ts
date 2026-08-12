@@ -47,6 +47,7 @@ describe('PublicIntegrationsController', () => {
   const integrationService = {
     getInternalIntegrationsList: jest.fn(),
     getIntegrationHealthList: jest.fn(),
+    getIntegrationById: jest.fn(),
   };
   const postsService = {
     mapTypeToPost: jest.fn(),
@@ -96,7 +97,8 @@ describe('PublicIntegrationsController', () => {
       '',
       'https://juston.example.test/channels/connect/return?provider=instagram',
       'signed-juston-state',
-      { id: 'org-1' } as any
+      { id: 'org-1' } as any,
+      {} as any
     );
 
     expect(result).toEqual({ url: 'https://provider.example/oauth' });
@@ -120,6 +122,123 @@ describe('PublicIntegrationsController', () => {
     );
   });
 
+  it('translates a public reconnect row id to the provider internal id', async () => {
+    const generateAuthUrl = jest.fn().mockResolvedValue({
+      codeVerifier: 'code-verifier',
+      state: 'postiz-oauth-state',
+      url: 'https://provider.example/oauth',
+    });
+    (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
+      'tiktok',
+    ]);
+    (integrationManager as any).getSocialIntegration = jest.fn(() => ({
+      generateAuthUrl,
+    }));
+    integrationService.getIntegrationById.mockResolvedValue({
+      id: 'postiz-row-id',
+      internalId: 'provider-account-id',
+      providerIdentifier: 'tiktok',
+    });
+    (ioRedis as any).set = jest.fn().mockResolvedValue('OK');
+
+    const result = await controller.getIntegrationUrl(
+      'tiktok',
+      'postiz-row-id',
+      '',
+      '',
+      { id: 'org-1' } as any,
+      {
+        tokenScopes: {
+          permissions: ['write'],
+          integrationIds: ['postiz-row-id'],
+        },
+      } as any
+    );
+
+    expect(result).toEqual({ url: 'https://provider.example/oauth' });
+    expect(integrationService.getIntegrationById).toHaveBeenCalledWith(
+      'org-1',
+      'postiz-row-id',
+      ['postiz-row-id']
+    );
+    expect((ioRedis as any).set).toHaveBeenCalledWith(
+      'refresh:postiz-oauth-state',
+      'provider-account-id',
+      'EX',
+      3600
+    );
+    expect((ioRedis as any).set).not.toHaveBeenCalledWith(
+      'refresh:postiz-oauth-state',
+      'postiz-row-id',
+      'EX',
+      3600
+    );
+  });
+
+  it('rejects reconnecting a row through a different provider', async () => {
+    (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
+      'tiktok',
+    ]);
+    (integrationManager as any).getSocialIntegration = jest.fn(() => ({
+      generateAuthUrl: jest.fn(),
+    }));
+    integrationService.getIntegrationById.mockResolvedValue({
+      id: 'postiz-row-id',
+      internalId: 'provider-account-id',
+      providerIdentifier: 'instagram',
+    });
+
+    await expect(
+      controller.getIntegrationUrl(
+        'tiktok',
+        'postiz-row-id',
+        '',
+        '',
+        { id: 'org-1' } as any,
+        {} as any
+      )
+    ).rejects.toMatchObject({
+      response: {
+        msg: 'Integration provider does not match reconnect provider',
+      },
+      status: 400,
+    });
+  });
+
+  it('rejects reconnecting an integration outside the API token scope', async () => {
+    (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
+      'tiktok',
+    ]);
+    (integrationManager as any).getSocialIntegration = jest.fn(() => ({
+      generateAuthUrl: jest.fn(),
+    }));
+    integrationService.getIntegrationById.mockResolvedValue(null);
+
+    await expect(
+      controller.getIntegrationUrl(
+        'tiktok',
+        'out-of-scope-row-id',
+        '',
+        '',
+        { id: 'org-1' } as any,
+        {
+          tokenScopes: {
+            permissions: ['write'],
+            integrationIds: ['allowed-row-id'],
+          },
+        } as any
+      )
+    ).rejects.toMatchObject({
+      response: { msg: 'Integration not found' },
+      status: 404,
+    });
+    expect(integrationService.getIntegrationById).toHaveBeenCalledWith(
+      'org-1',
+      'out-of-scope-row-id',
+      ['allowed-row-id']
+    );
+  });
+
   it('rejects public social return URLs outside the allowlist', async () => {
     (integrationManager as any).getAllowedSocialsIntegrations = jest.fn(() => [
       'instagram',
@@ -134,7 +253,8 @@ describe('PublicIntegrationsController', () => {
         '',
         'https://evil.example/channels/connect/return',
         'signed-juston-state',
-        { id: 'org-1' } as any
+        { id: 'org-1' } as any,
+        {} as any
       )
     ).rejects.toMatchObject({
       response: { msg: 'return_url host not allowed' },
