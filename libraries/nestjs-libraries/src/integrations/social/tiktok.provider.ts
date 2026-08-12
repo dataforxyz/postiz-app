@@ -732,20 +732,41 @@ export class TiktokProvider extends SocialAbstract implements SocialProvider {
     }
 
     if (path.indexOf('http') === 0) {
+      const dispatcher = getSsrfSafeDispatcher();
       const head = await fetch(path, {
         method: 'HEAD',
-        dispatcher: getSsrfSafeDispatcher(),
+        dispatcher,
       } as any);
-      const length = Number(head.headers.get('content-length'));
-      if (!head.ok || !Number.isFinite(length) || length <= 0) {
-        throw new BadBody(
-          'tiktok-error-upload',
-          '{}',
-          Buffer.from('{}'),
-          'Could not determine the video size for TikTok upload'
-        );
+      const headLength = Number(head.headers.get('content-length'));
+      if (head.ok && Number.isFinite(headLength) && headLength > 0) {
+        return headLength;
       }
-      return length;
+
+      // Some private object stores reject or omit metadata on a presigned HEAD
+      // even though the same read-only signature authorizes GET. Probe one byte
+      // and use Content-Range's total without downloading the video.
+      const probe = await fetch(path, {
+        headers: { Range: 'bytes=0-0' },
+        dispatcher,
+      } as any);
+      const contentRange = probe.headers.get('content-range') || '';
+      const rangeTotal = Number(contentRange.match(/\/(\d+)$/)?.[1]);
+      if (
+        probe.status === 206 &&
+        Number.isFinite(rangeTotal) &&
+        rangeTotal > 0
+      ) {
+        await probe.body?.cancel();
+        return rangeTotal;
+      }
+      await probe.body?.cancel();
+
+      throw new BadBody(
+        'tiktok-error-upload',
+        '{}',
+        Buffer.from('{}'),
+        'Could not determine the video size for TikTok upload'
+      );
     }
 
     return statSync(path).size;
