@@ -253,6 +253,72 @@ describe('TiktokProvider OAuth scopes', () => {
     ).toBe('/uploads/2026/07/02/video.mp4');
   });
 
+  it('uses HEAD content-length for remote TikTok media size', async () => {
+    const provider = new TiktokProvider();
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response(null, {
+        status: 200,
+        headers: { 'content-length': '123456' },
+      })
+    );
+
+    await expect(
+      (provider as any).tiktokMediaSize('https://media.example/video.mp4')
+    ).resolves.toBe(123456);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'HEAD' });
+  });
+
+  it('falls back to a one-byte range GET when presigned HEAD is rejected', async () => {
+    const provider = new TiktokProvider();
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 401,
+          headers: { 'content-length': '219' },
+        })
+      )
+      .mockResolvedValueOnce({
+        status: 206,
+        headers: new Headers({
+          'content-length': '1',
+          'content-range': 'bytes 0-0/987654',
+        }),
+        body: { cancel },
+      } as any);
+
+    await expect(
+      (provider as any).tiktokMediaSize('https://media.example/video.mp4')
+    ).resolves.toBe(987654);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      headers: { Range: 'bytes=0-0' },
+    });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects remote TikTok media without valid HEAD or range size metadata', async () => {
+    const provider = new TiktokProvider();
+    const cancel = jest.fn().mockResolvedValue(undefined);
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce({
+        status: 200,
+        headers: new Headers({ 'content-length': '1' }),
+        body: { cancel },
+      } as any);
+
+    await expect(
+      (provider as any).tiktokMediaSize('https://media.example/video.mp4')
+    ).rejects.toMatchObject({
+      message: 'Could not determine the video size for TikTok upload',
+    });
+    expect(cancel).toHaveBeenCalledTimes(1);
+  });
+
   it('declares enough upload chunks for videos just over one chunk boundary', () => {
     const provider = new TiktokProvider();
     const chunkSize = 10 * 1024 * 1024;
