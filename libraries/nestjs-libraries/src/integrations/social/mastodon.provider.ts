@@ -13,6 +13,7 @@ import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { number, string } from 'yup';
 import { IntegrationCapabilities } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.capabilities';
+import { MastodonDto } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/mastodon.dto';
 
 export class MastodonProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 5; // Mastodon instances typically have generous limits
@@ -195,7 +196,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
     id: string,
     accessToken: string,
     url: string,
-    postDetails: PostDetails[]
+    postDetails: PostDetails<MastodonDto>[]
   ): Promise<PostResponse[]> {
     const [firstPost] = postDetails;
 
@@ -207,7 +208,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
 
     const form = new FormData();
     form.append('status', firstPost.message);
-    form.append('visibility', 'public');
+    form.append('visibility', firstPost.settings?.visibility || 'public');
     if (uploadFiles.length) {
       for (const file of uploadFiles) {
         form.append('media_ids[]', file);
@@ -240,7 +241,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
     lastCommentId: string | undefined,
     accessToken: string,
     url: string,
-    postDetails: PostDetails[]
+    postDetails: PostDetails<MastodonDto>[]
   ): Promise<PostResponse[]> {
     const [commentPost] = postDetails;
     const replyToId = lastCommentId || postId;
@@ -253,7 +254,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
 
     const form = new FormData();
     form.append('status', commentPost.message);
-    form.append('visibility', 'public');
+    form.append('visibility', commentPost.settings?.visibility || 'public');
     form.append('in_reply_to_id', replyToId);
     if (uploadFiles.length) {
       for (const file of uploadFiles) {
@@ -284,7 +285,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
   async post(
     id: string,
     accessToken: string,
-    postDetails: PostDetails[]
+    postDetails: PostDetails<MastodonDto>[]
   ): Promise<PostResponse[]> {
     return this.dynamicPost(
       id,
@@ -299,7 +300,7 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
     postId: string,
     lastCommentId: string | undefined,
     accessToken: string,
-    postDetails: PostDetails[],
+    postDetails: PostDetails<MastodonDto>[],
     integration: Integration
   ): Promise<PostResponse[]> {
     return this.dynamicComment(
@@ -327,7 +328,8 @@ export class MastodonProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['instance_specific'],
       textFormat: 'plain',
-      notes: 'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+      notes:
+        'Allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }
