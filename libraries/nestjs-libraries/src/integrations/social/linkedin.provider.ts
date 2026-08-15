@@ -86,7 +86,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       };
     }
 
-    if (body.indexOf('resource is forbidden') > -1 || body.indexOf('Service Unavailable') > -1) {
+    if (
+      body.indexOf('resource is forbidden') > -1 ||
+      body.indexOf('Service Unavailable') > -1
+    ) {
       return {
         type: 'retry',
         value: 'Resource is forbidden',
@@ -539,10 +542,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
 
     // Create a PDF sized to the largest image; it fills the page,
     // smaller images are fitted and centered within the same dimensions
-    const pdfStream = imageToPDF(
-      imageBuffers,
-      [largest.width, largest.height]
-    ) as unknown as Readable;
+    const pdfStream = imageToPDF(imageBuffers, [
+      largest.width,
+      largest.height,
+    ]) as unknown as Readable;
     const pdfBuffer = await this.streamToBuffer(pdfStream);
 
     // Replace the first post's media with the single PDF
@@ -641,7 +644,9 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     // DISABLE_IMAGE_COMPRESSION=true, where the frontend no longer shrinks
     // uploads and full-size images reach LinkedIn directly. Do not remove it on
     // the assumption that the frontend compression already caps dimensions.
-    const pipeline = sharp(await readOrFetch(mediaUrl), { animated: false }).resize({
+    const pipeline = sharp(await readOrFetch(mediaUrl), {
+      animated: false,
+    }).resize({
       width: 6000,
       height: 6000,
       fit: 'inside',
@@ -651,7 +656,11 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     return await (keepFormat ? pipeline : pipeline.toFormat('jpeg')).toBuffer();
   }
 
-  private buildPostContent(isPdf: boolean, mediaIds: string[], pdfTitle?: string) {
+  private buildPostContent(
+    isPdf: boolean,
+    mediaIds: string[],
+    pdfTitle?: string
+  ) {
     if (mediaIds.length === 0) {
       return {};
     }
@@ -682,7 +691,8 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     message: string,
     mediaIds: string[],
     isPdf: boolean,
-    pdfTitle?: string
+    pdfTitle?: string,
+    visibility: 'PUBLIC' | 'CONNECTIONS' = 'PUBLIC'
   ) {
     const author =
       type === 'personal' ? `urn:li:person:${id}` : `urn:li:organization:${id}`;
@@ -690,7 +700,7 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
     return {
       author,
       commentary: this.fixText(message),
-      visibility: 'PUBLIC',
+      visibility,
       distribution: {
         feedDistribution: 'MAIN_FEED',
         targetEntities: [] as string[],
@@ -720,7 +730,10 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       firstPost.message,
       mediaIds,
       isPdf,
-      pdfTitle
+      pdfTitle,
+      type === 'personal'
+        ? firstPost.settings?.visibility || 'PUBLIC'
+        : 'PUBLIC'
     );
 
     const response = await this.fetch(`https://api.linkedin.com/rest/posts`, {
@@ -763,9 +776,9 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       {
         method: 'POST',
         headers: {
-        'LinkedIn-Version': '202306',
-        'X-Restli-Protocol-Version': '2.0.0',
-        'Content-Type': 'application/json',
+          'LinkedIn-Version': '202306',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
@@ -996,7 +1009,8 @@ export class LinkedinProvider extends SocialAbstract implements SocialProvider {
       allowedExtensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4'],
       flags: ['supports_pdf_carousel_synthesis'],
       textFormat: 'plain',
-      notes: 'post_as_images_carousel synthesizes PDF from images; native PDF supported via isPdf branch; .mp4 routes to /videos endpoint, others to /images (linkedin.provider.ts:238-247); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
+      notes:
+        'post_as_images_carousel synthesizes PDF from images; native PDF supported via isPdf branch; .mp4 routes to /videos endpoint, others to /images (linkedin.provider.ts:238-247); allowed extensions enforced by MediaDto ValidUrlExtension (libraries/helpers/src/utils/valid.url.path.ts:11-16)',
     };
   }
 }

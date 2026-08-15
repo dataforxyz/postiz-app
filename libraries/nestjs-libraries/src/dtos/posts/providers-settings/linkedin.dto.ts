@@ -1,6 +1,10 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class LinkedinDto {
+  @IsIn(['PUBLIC', 'CONNECTIONS'])
+  @IsOptional()
+  visibility?: 'PUBLIC' | 'CONNECTIONS';
+
   @IsBoolean()
   @IsOptional()
   post_as_images_carousel: boolean;
