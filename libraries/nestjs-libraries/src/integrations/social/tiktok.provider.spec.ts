@@ -319,13 +319,24 @@ describe('TiktokProvider OAuth scopes', () => {
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it('declares enough upload chunks for videos just over one chunk boundary', () => {
-    const provider = new TiktokProvider();
-    const chunkSize = 10 * 1024 * 1024;
+  it.each([
+    [64 * 1024 * 1024, 64 * 1024 * 1024, 1],
+    [65 * 1024 * 1024, Math.ceil((65 * 1024 * 1024) / 2), 2],
+    [75_064_653, Math.ceil(75_064_653 / 2), 2],
+    [128 * 1024 * 1024, 64 * 1024 * 1024, 2],
+    [128 * 1024 * 1024 + 1, Math.ceil((128 * 1024 * 1024 + 1) / 3), 3],
+  ])(
+    'plans valid balanced chunks for %i bytes',
+    (videoSize, chunkSize, totalChunkCount) => {
+      const provider = new TiktokProvider();
+      const plan = (provider as any).tiktokChunkPlan(videoSize);
 
-    expect((provider as any).tiktokChunkPlan(65 * 1024 * 1024)).toEqual({
-      chunkSize,
-      totalChunkCount: 7,
-    });
-  });
+      expect(plan).toEqual({ chunkSize, totalChunkCount });
+      const finalChunkSize = videoSize - chunkSize * (totalChunkCount - 1);
+      expect(chunkSize).toBeGreaterThanOrEqual(5 * 1024 * 1024);
+      expect(chunkSize).toBeLessThanOrEqual(64 * 1024 * 1024);
+      expect(finalChunkSize).toBeGreaterThanOrEqual(5 * 1024 * 1024);
+      expect(finalChunkSize).toBeLessThanOrEqual(64 * 1024 * 1024);
+    }
+  );
 });
