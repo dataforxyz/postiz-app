@@ -321,18 +321,20 @@ describe('TiktokProvider OAuth scopes', () => {
 
   it.each([
     [64 * 1024 * 1024, 64 * 1024 * 1024, 1],
-    [65 * 1024 * 1024, Math.ceil((65 * 1024 * 1024) / 2), 2],
-    [75_064_653, Math.ceil(75_064_653 / 2), 2],
-    [128 * 1024 * 1024, 64 * 1024 * 1024, 2],
-    [128 * 1024 * 1024 + 1, Math.ceil((128 * 1024 * 1024 + 1) / 3), 3],
+    [65 * 1024 * 1024, 10 * 1024 * 1024, 6],
+    [75_064_653, 10 * 1024 * 1024, 7],
+    [257_114_803, 10 * 1024 * 1024, 24],
+    [128 * 1024 * 1024, 10 * 1024 * 1024, 12],
+    [128 * 1024 * 1024 + 1, 10 * 1024 * 1024, 12],
   ])(
-    'plans valid balanced chunks for %i bytes',
+    'plans TikTok-compatible fixed-MiB chunks for %i bytes',
     (videoSize, chunkSize, totalChunkCount) => {
       const provider = new TiktokProvider();
       const plan = (provider as any).tiktokChunkPlan(videoSize);
 
       expect(plan).toEqual({ chunkSize, totalChunkCount });
       const finalChunkSize = videoSize - chunkSize * (totalChunkCount - 1);
+      expect(chunkSize % (1024 * 1024)).toBe(0);
       expect(chunkSize).toBeGreaterThanOrEqual(5 * 1024 * 1024);
       expect(chunkSize).toBeLessThanOrEqual(64 * 1024 * 1024);
       expect(finalChunkSize).toBeGreaterThanOrEqual(5 * 1024 * 1024);
